@@ -1,3 +1,9 @@
+Below is the original text from cview which explains why it was forked from tview. Nuview is forked from cview due to the inactivity at cview.
+
+-- Simon Edwards
+
+-------
+
 This document explains why [tview](https://github.com/rivo/tview) was forked to
 create [cview](https://codeberg.org/tslocum/cview). It also explains any
 differences between the projects and tracks which tview pull requests have been
@@ -77,7 +83,7 @@ Call `SetWrapAround` to wrap around when navigating.
 ## Tables do not wrap around when selecting a cell
 
 Attempting to move outside of the range of the table results in the selection
-remaining unchanged. 
+remaining unchanged.
 
 ## TextViews store their text as []byte instead of string
 

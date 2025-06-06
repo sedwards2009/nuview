@@ -1,6 +1,6 @@
-module codeberg.org/tslocum/cview
+module github.com/sedwards2009/nuview
 
-go 1.23.0
+go 1.24.0
 
 toolchain go1.24.2
 

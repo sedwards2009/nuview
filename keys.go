@@ -1,4 +1,4 @@
-package cview
+package nuview
 
 import (
 	"codeberg.org/tslocum/cbind"

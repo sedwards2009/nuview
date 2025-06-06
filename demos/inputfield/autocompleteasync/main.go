@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"codeberg.org/tslocum/cview"
 	"github.com/gdamore/tcell/v2"
+	cview "github.com/sedwards2009/nuview"
 )
 
 type company struct {

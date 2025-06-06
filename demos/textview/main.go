@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/tslocum/cview"
 	"github.com/gdamore/tcell/v2"
+	cview "github.com/sedwards2009/nuview"
 )
 
 const corporate = `Leverage agile frameworks to provide a robust synopsis for high level overviews. Iterative approaches to corporate strategy foster collaborative thinking to further the overall value proposition. Organically grow the holistic world view of disruptive innovation via workplace diversity and empowerment.

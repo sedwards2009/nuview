@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"codeberg.org/tslocum/cview"
 	"github.com/gdamore/tcell/v2"
+	cview "github.com/sedwards2009/nuview"
 )
 
 // Show a navigable tree view of the current directory.

@@ -1,15 +1,15 @@
 // Demo code for the Button primitive.
 package main
 
-import "codeberg.org/tslocum/cview"
+import "github.com/sedwards2009/nuview"
 
 func main() {
-	app := cview.NewApplication()
+	app := nuview.NewApplication()
 	defer app.HandlePanic()
 
 	app.EnableMouse(true)
 
-	button := cview.NewButton("Hit Enter to close")
+	button := nuview.NewButton("Hit Enter to close")
 	button.SetRect(0, 0, 22, 3)
 	button.SetSelectedFunc(func() {
 		app.Stop()

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"codeberg.org/tslocum/cview"
 	"github.com/gdamore/tcell/v2"
+	cview "github.com/sedwards2009/nuview"
 )
 
 const logo = `

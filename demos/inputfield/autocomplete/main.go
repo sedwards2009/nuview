@@ -3,8 +3,8 @@ package main
 import (
 	"strings"
 
-	"codeberg.org/tslocum/cview"
 	"github.com/gdamore/tcell/v2"
+	cview "github.com/sedwards2009/nuview"
 )
 
 // 1,000 most common English words.

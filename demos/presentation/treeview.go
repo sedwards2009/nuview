@@ -3,13 +3,13 @@ package main
 import (
 	"strings"
 
-	"codeberg.org/tslocum/cview"
 	"github.com/gdamore/tcell/v2"
+	cview "github.com/sedwards2009/nuview"
 )
 
 const treeAllCode = `[green]package[white] main
 
-[green]import[white] [red]"codeberg.org/tslocum/cview"[white]
+[green]import[white] [red]"github.com/sedwards2009/nuview"[white]
 
 [green]func[white] [yellow]main[white]() {
 	$$$

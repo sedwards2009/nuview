@@ -1,13 +1,13 @@
 package main
 
 import (
-	"codeberg.org/tslocum/cview"
+	cview "github.com/sedwards2009/nuview"
 )
 
 const form = `[green]package[white] main
 
 [green]import[white] (
-    [red]"codeberg.org/tslocum/cview"[white]
+    [red]"github.com/sedwards2009/nuview"[white]
 )
 
 [green]func[white] [yellow]main[white]() {

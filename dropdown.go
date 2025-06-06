@@ -1,4 +1,4 @@
-package cview
+package nuview
 
 import (
 	"strings"

@@ -4,8 +4,8 @@ package main
 import (
 	"fmt"
 
-	"codeberg.org/tslocum/cview"
 	"github.com/gdamore/tcell/v2"
+	cview "github.com/sedwards2009/nuview"
 )
 
 // RadioButtons implements a simple primitive for radio button selections.

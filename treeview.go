@@ -1,4 +1,4 @@
-package cview
+package nuview
 
 import (
 	"sync"
@@ -426,8 +426,8 @@ func (t *TreeView) SetTopLevel(topLevel int) {
 //
 // For example, to display a hierarchical list with bullet points:
 //
-//   treeView.SetGraphics(false).
-//     SetPrefixes([]string{"* ", "- ", "x "})
+//	treeView.SetGraphics(false).
+//	  SetPrefixes([]string{"* ", "- ", "x "})
 func (t *TreeView) SetPrefixes(prefixes []string) {
 	t.Lock()
 	defer t.Unlock()

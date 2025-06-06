@@ -2,7 +2,7 @@
 package main
 
 import (
-	"codeberg.org/tslocum/cview"
+	cview "github.com/sedwards2009/nuview"
 )
 
 func main() {

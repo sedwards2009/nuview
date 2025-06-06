@@ -1,7 +1,7 @@
 /*
 A presentation of the cview package, implemented with cview.
 
-Navigation
+# Navigation
 
 The presentation will advance to the next slide when the primitive demonstrated
 in the current slide is left (usually by hitting Enter or Escape). Additionally,
@@ -20,8 +20,8 @@ import (
 	_ "net/http/pprof"
 	"strconv"
 
-	"codeberg.org/tslocum/cview"
 	"github.com/gdamore/tcell/v2"
+	cview "github.com/sedwards2009/nuview"
 )
 
 const (

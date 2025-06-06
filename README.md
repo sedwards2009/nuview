@@ -1,15 +1,11 @@
-# cview - Terminal-based user interface toolkit
-[![GoDoc](https://codeberg.org/tslocum/godoc-static/raw/branch/master/badge.svg)](https://docs.rocket9labs.com/codeberg.org/tslocum/cview)
-[![Donate](https://img.shields.io/liberapay/receives/rocket9labs.com.svg?logo=liberapay)](https://liberapay.com/rocket9labs.com)
+# nuview - Terminal-based user interface toolkit
 
-This package is a fork of [tview](https://github.com/rivo/tview).
-See [FORK.md](https://codeberg.org/tslocum/cview/src/branch/master/FORK.md) for more information.
+This package is a fork of [cview](https://codeberg.org/tslocum/cview) which was a fork of [tview](https://github.com/rivo/tview).
+See [FORK.md](FORK.md) for more information.
 
 ## Demo
 
-`ssh cview.rocket9labs.com -p 20000`
-
-[![Recording of presentation demo](https://codeberg.org/tslocum/cview/raw/branch/master/cview.svg)](https://codeberg.org/tslocum/cview/src/branch/master/demos/presentation)
+[![Recording of presentation demo](cview.svg)](https://github.com/sedwards2009/nuview/tree/master/demos/presentation)
 
 ## Features
 
@@ -28,16 +24,13 @@ Available widgets:
 
 Widgets may be customized and extended to suit any application.
 
-[Mouse support](https://docs.rocket9labs.com/codeberg.org/tslocum/cview#hdr-Mouse_Support) is available.
+[Mouse support](#hdr-Mouse_Support) is available.
 
-## Applications
-
-A list of applications powered by cview is available via [pkg.go.dev](https://pkg.go.dev/codeberg.org/tslocum/cview?tab=importedby).
 
 ## Installation
 
 ```bash
-go get codeberg.org/tslocum/cview
+go get github.com/sedwards2009/nuview
 ```
 
 ## Hello World
@@ -48,17 +41,17 @@ This basic example creates a TextView titled "Hello, World!" and displays it in 
 package main
 
 import (
-	"codeberg.org/tslocum/cview"
+	"github.com/sedwards2009/nuview"
 )
 
 func main() {
-	app := cview.NewApplication()
+	app := nuview.NewApplication()
 
-	tv := cview.NewTextView()
+	tv := nuview.NewTextView()
 	tv.SetBorder(true)
 	tv.SetTitle("Hello, world!")
 	tv.SetText("Lorem ipsum dolor sit amet")
-	
+
 	app.SetRoot(tv, true)
 	if err := app.Run(); err != nil {
 		panic(err)
@@ -66,17 +59,10 @@ func main() {
 }
 ```
 
-Examples are available via [godoc](https://docs.rocket9labs.com/codeberg.org/tslocum/cview#pkg-examples)
-and in the [demos](https://codeberg.org/tslocum/cview/src/branch/master/demos) directory.
+Demo are available in the [demos](demos) directory.
 
 For a presentation highlighting the features of this package, compile and run
-the program in the [demos/presentation](https://codeberg.org/tslocum/cview/src/branch/master/demos/presentation) directory.
-
-## Documentation
-
-Package documentation is available via [godoc](https://docs.rocket9labs.com/codeberg.org/tslocum/cview).
-
-An [introduction tutorial](https://rocket9labs.com/post/tview-and-you/) is also available.
+the program in the [demos/presentation](demos/presentation) directory.
 
 ## Dependencies
 
@@ -85,5 +71,4 @@ This package is based on [github.com/gdamore/tcell](https://github.com/gdamore/t
 
 ## Support
 
-[CONTRIBUTING.md](https://codeberg.org/tslocum/cview/src/branch/master/CONTRIBUTING.md) describes how to share
-issues, suggestions and patches (pull requests).
+PR and issues can done up at https://github.com/sedwards2009/nuview .

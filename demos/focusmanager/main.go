@@ -5,8 +5,8 @@ import (
 	"log"
 
 	"codeberg.org/tslocum/cbind"
-	"codeberg.org/tslocum/cview"
 	"github.com/gdamore/tcell/v2"
+	cview "github.com/sedwards2009/nuview"
 )
 
 func wrap(f func()) func(ev *tcell.EventKey) *tcell.EventKey {
