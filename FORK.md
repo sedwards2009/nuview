@@ -71,11 +71,6 @@ to enable background transparency.
 
 All clicks are handled as single clicks until an interval is set with [Application.SetDoubleClickInterval](https://docs.rocket9labs.com/codeberg.org/tslocum/cview/#Application.SetDoubleClickInterval).
 
-## Tables are sorted when a fixed row is clicked by default
-
-Call [Table.SetSortClicked](https://docs.rocket9labs.com/codeberg.org/tslocum/cview/#Table.SetSortClicked)
-to disable this behavior.
-
 ## Lists and Forms do not wrap around by default
 
 Call `SetWrapAround` to wrap around when navigating.
