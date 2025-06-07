@@ -36,7 +36,7 @@ func TestTable(t *testing.T) {
 
 			for row := 0; row < c.rows; row++ {
 				for column := 0; column < c.columns; column++ {
-					contents := table.GetCell(row, column).GetText()
+					contents := table.GetCell(row, column).Text
 					expected := fmt.Sprintf("%d,%d", column, row)
 					if contents != expected {
 						t.Errorf("failed to either get or set TableCell text: expected %s, got %s", expected, contents)
