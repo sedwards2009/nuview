@@ -3,6 +3,7 @@ package nuview
 import (
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	colorful "github.com/lucasb-eyer/go-colorful"
@@ -550,19 +551,26 @@ type Table struct {
 	// Likewise for entire columns.
 	selectionChanged func(row, column int)
 
+	// An optional function which gets called when the user double-clicks a
+	// cell. If entire rows are selected, the column index is undefined.
+	doubleClick func(row, column int)
+
 	// An optional function which gets called when the user presses Escape, Tab,
 	// or Backtab. Also when the user presses Enter if nothing is selectable.
 	done func(key tcell.Key)
 
+	lastMouseDown       time.Time
+	doubleClickDuration time.Duration
 	sync.RWMutex
 }
 
 // NewTable returns a new table.
 func NewTable() *Table {
 	t := &Table{
-		Box:          NewBox(),
-		bordersColor: Styles.GraphicsColor,
-		separator:    ' ',
+		Box:                 NewBox(),
+		bordersColor:        Styles.GraphicsColor,
+		separator:           ' ',
+		doubleClickDuration: StandardDoubleClick,
 	}
 	t.SetContent(nil)
 	return t
@@ -752,6 +760,16 @@ func (t *Table) SetDoneFunc(handler func(key tcell.Key)) {
 	t.Lock()
 	defer t.Unlock()
 	t.done = handler
+}
+
+// SetDoubleClickFunc sets a handler which is called whenever the user
+// double-clicks a cell. The handler receives the position of the double-clicked
+// cell. If entire rows are selected, the column index is undefined. Likewise
+// for entire columns.
+func (t *Table) SetDoubleClickFunc(handler func(row, column int)) {
+	t.Lock()
+	defer t.Unlock()
+	t.doubleClick = handler
 }
 
 // SetCell sets the content of a cell the specified position. It is ok to
@@ -1755,8 +1773,7 @@ func (t *Table) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 		switch action {
 		case MouseLeftDown:
 			setFocus(t)
-			consumed = true
-		case MouseLeftClick:
+
 			selectEvent := true
 			row, column := t.CellAt(x, y)
 			cell := t.content.GetCell(row, column)
@@ -1765,14 +1782,28 @@ func (t *Table) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 					selectEvent = false
 				}
 			}
-			if selectEvent && (t.rowsSelectable || t.columnsSelectable) {
+			isAlreadySelected := t.selectedRow == row && t.selectedColumn == column
+			if !isAlreadySelected && selectEvent && (t.rowsSelectable || t.columnsSelectable) {
 				t.Select(row, column)
 			}
+
+			if isAlreadySelected {
+				now := time.Now()
+				if !t.lastMouseDown.IsZero() && (now.Sub(t.lastMouseDown) < t.doubleClickDuration) {
+					// Double-click: Notify the handler.
+					if t.doubleClick != nil {
+						t.doubleClick(row, column)
+					}
+				}
+			}
+			t.lastMouseDown = time.Now()
 			consumed = true
+
 		case MouseScrollUp:
 			t.trackEnd = false
 			t.rowOffset--
 			consumed = true
+
 		case MouseScrollDown:
 			t.rowOffset++
 			consumed = true
