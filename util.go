@@ -630,16 +630,6 @@ func EscapeBytes(text []byte) []byte {
 	return nonEscapePattern.ReplaceAll(text, []byte("$1[]"))
 }
 
-// Escape escapes the given text such that color and/or region tags are not
-// recognized and substituted by the print functions of this package. For
-// example, to include a tag-like string in a box title or in a TextView:
-//
-//	box.SetTitle(cview.Escape("[squarebrackets]"))
-//	fmt.Fprint(textView, cview.Escape(`["quoted"]`))
-// func Escape(text string) string {
-// 	return nonEscapePattern.ReplaceAllString(text, "$1[]")
-// }
-
 // iterateString iterates through the given string one printed character at a
 // time. For each such character, the callback function is called with the
 // Unicode code points of the character (the first rune and any combining runes
