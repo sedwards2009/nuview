@@ -376,7 +376,7 @@ func (f *Form) AddCheckBox(label string, message string, checked bool, changed f
 
 	c := NewCheckbox()
 	c.SetLabel(label)
-	c.SetMessage(message)
+	c.SetLabelRight(message)
 	c.SetChecked(checked)
 	c.SetChangedFunc(changed)
 

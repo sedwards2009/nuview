@@ -26,6 +26,9 @@ type Checkbox struct {
 	// the label text.
 	labelWidth int
 
+	labelRight      string
+	labelRightWidth int
+
 	// The label style.
 	labelStyle tcell.Style
 
@@ -108,12 +111,34 @@ func (c *Checkbox) GetLabel() string {
 	return c.label
 }
 
+// SetLabel sets the text to be displayed before the input area.
+func (c *Checkbox) SetLabelRight(labelRight string) {
+	c.Lock()
+	defer c.Unlock()
+	c.labelRight = labelRight
+}
+
+// GetLabel returns the text to be displayed before the input area.
+func (c *Checkbox) GetLabelRight() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.labelRight
+}
+
 // SetLabelWidth sets the screen width of the label. A value of 0 will cause the
 // primitive to use the width of the label string.
 func (c *Checkbox) SetLabelWidth(width int) {
 	c.Lock()
 	defer c.Unlock()
 	c.labelWidth = width
+}
+
+// SetLabelWidth sets the screen width of the label. A value of 0 will cause the
+// primitive to use the width of the label string.
+func (c *Checkbox) SetLabelRightWidth(width int) {
+	c.Lock()
+	defer c.Unlock()
+	c.labelRightWidth = width
 }
 
 // SetLabelColor sets the color of the label.
@@ -128,6 +153,24 @@ func (c *Checkbox) SetLabelStyle(style tcell.Style) {
 	c.Lock()
 	defer c.Unlock()
 	c.labelStyle = style
+}
+
+func (c *Checkbox) SetLabelColorFocused(color tcell.Color) {
+	c.Lock()
+	defer c.Unlock()
+	c.labelStyle = c.labelStyle.Foreground(color)
+}
+
+func (c *Checkbox) SetFieldTextColorFocused(color tcell.Color) {
+	c.Lock()
+	defer c.Unlock()
+	c.focusStyle = c.focusStyle.Foreground(color)
+}
+
+func (c *Checkbox) SetFieldBackgroundColorFocused(color tcell.Color) {
+	c.Lock()
+	defer c.Unlock()
+	c.focusStyle = c.focusStyle.Background(color)
 }
 
 // SetFieldBackgroundColor sets the background color of the input area.
@@ -309,14 +352,28 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	if c.HasFocus() {
 		style = c.focusStyle
 	}
-	printWithStyle(screen, str, x, y, 0, width, AlignLeft, style, c.disabled)
+	_, _, drawnWidth := printWithStyle(screen, str, x, y, 0, width, AlignLeft, style, c.disabled)
+	x += drawnWidth
+	width -= drawnWidth
+
+	if c.labelRight != "" {
+		// Draw label right.
+		_, labelRightBg, _ := c.labelStyle.Decompose()
+		if c.labelRightWidth > 0 {
+			labelRightWidth := c.labelRightWidth
+			if labelRightWidth > width {
+				labelRightWidth = width
+			}
+			printWithStyle(screen, c.labelRight, x, y, 0, labelRightWidth, AlignLeft, c.labelStyle, labelRightBg == tcell.ColorDefault)
+		} else {
+			printWithStyle(screen, c.labelRight, x, y, 0, width, AlignLeft, c.labelStyle, labelRightBg == tcell.ColorDefault)
+		}
+	}
 }
 
 // InputHandler returns the handler for this primitive.
 func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return c.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		c.Lock()
-		defer c.Unlock()
 		if c.disabled {
 			return
 		}
@@ -345,8 +402,6 @@ func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 // MouseHandler returns the mouse handler for this primitive.
 func (c *Checkbox) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return c.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
-		c.Lock()
-		defer c.Unlock()
 		if c.disabled {
 			return false, nil
 		}
