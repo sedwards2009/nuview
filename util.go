@@ -40,9 +40,13 @@ const (
 
 // Common regular expressions.
 var (
-	colorPattern     = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([bdilrsu]+|\-)?)?)?\]`)
-	regionPattern    = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
-	escapePattern    = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
+	colorPattern  = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([bdilrsu]+|\-)?)?)?\]`)
+	regionPattern = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
+	escapePattern = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
+
+	// Regular expression used to unescape escaped style/region tags.
+	unescapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\[\]`)
+
 	nonEscapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\]`)
 	boundaryPattern  = regexp.MustCompile(`(([,\.\-:;!\?&#+]|\n)[ \t\f\r]*|([ \t\f\r]+))`)
 	spacePattern     = regexp.MustCompile(`\s+`)
@@ -326,6 +330,107 @@ func decomposeText(text []byte, findColors, findRegions bool) (colorIndices [][]
 	return
 }
 
+// printWithStyle works like [Print] but it takes a style instead of just a
+// foreground color. The skipWidth parameter specifies the number of cells
+// skipped at the beginning of the text. It returns the start index, end index
+// (exclusively), and screen width of the text actually printed. If
+// maintainBackground is "true", the existing screen background is not changed
+// (i.e. the style's background color is ignored).
+func printWithStyle(screen tcell.Screen, text string, x, y, skipWidth, maxWidth, align int, style tcell.Style, maintainBackground bool) (start, end, printedWidth int) {
+	totalWidth, totalHeight := screen.Size()
+	if maxWidth <= 0 || len(text) == 0 || y < 0 || y >= totalHeight {
+		return 0, 0, 0
+	}
+
+	// If we don't overwrite the background, we use the default color.
+	if maintainBackground {
+		style = style.Background(tcell.ColorDefault)
+	}
+
+	// Skip beginning and measure width.
+	var textWidth int
+	state := &stepState{
+		unisegState: -1,
+		style:       style,
+	}
+	newState := *state
+	str := text
+	for len(str) > 0 {
+		_, str, state = step(str, state, stepOptionsStyle)
+		if skipWidth > 0 {
+			skipWidth -= state.Width()
+			text = str
+			newState = *state
+			start += state.GrossLength()
+		} else {
+			textWidth += state.Width()
+		}
+	}
+	state = &newState
+
+	// Reduce all alignments to AlignLeft.
+	if align == AlignRight {
+		// Chop off characters on the left until it fits.
+		for len(text) > 0 && textWidth > maxWidth {
+			_, text, state = step(text, state, stepOptionsStyle)
+			textWidth -= state.Width()
+			start += state.GrossLength()
+		}
+		x, maxWidth = x+maxWidth-textWidth, textWidth
+	} else if align == AlignCenter {
+		// Chop off characters on the left until it fits.
+		subtracted := (textWidth - maxWidth) / 2
+		for len(text) > 0 && subtracted > 0 {
+			_, text, state = step(text, state, stepOptionsStyle)
+			subtracted -= state.Width()
+			textWidth -= state.Width()
+			start += state.GrossLength()
+		}
+		if textWidth < maxWidth {
+			x, maxWidth = x+maxWidth/2-textWidth/2, textWidth
+		}
+	}
+
+	// Draw left-aligned text.
+	end = start
+	rightBorder := x + maxWidth
+	for len(text) > 0 && x < rightBorder && x < totalWidth {
+		var c string
+		c, text, state = step(text, state, stepOptionsStyle)
+		if c == "" {
+			break // We don't care about the style at the end.
+		}
+		width := state.Width()
+
+		if width > 0 {
+			finalStyle := state.Style()
+			if maintainBackground {
+				_, backgroundColor, _ := finalStyle.Decompose()
+				if backgroundColor == tcell.ColorDefault {
+					_, _, existingStyle, _ := screen.GetContent(x, y)
+					_, background, _ := existingStyle.Decompose()
+					finalStyle = finalStyle.Background(background)
+				}
+			}
+			for offset := width - 1; offset >= 0; offset-- {
+				// To avoid undesired effects, we populate all cells.
+				runes := []rune(c)
+				if offset == 0 {
+					screen.SetContent(x+offset, y, runes[0], runes[1:], finalStyle)
+				} else {
+					screen.SetContent(x+offset, y, ' ', nil, finalStyle)
+				}
+			}
+		}
+
+		x += width
+		end += state.GrossLength()
+		printedWidth += width
+	}
+
+	return
+}
+
 // Print prints text onto the screen into the given box at (x,y,maxWidth,1),
 // not exceeding that box. "align" is one of AlignLeft, AlignCenter, or
 // AlignRight. The screen's background color will not be changed.
@@ -515,124 +620,6 @@ func TaggedTextWidth(text []byte) int {
 	return width
 }
 
-// TaggedStringWidth returns the width of the given string needed to print it on
-// screen. The text may contain color tags which are not counted.
-func TaggedStringWidth(text string) int {
-	return TaggedTextWidth([]byte(text))
-}
-
-// WordWrap splits a text such that each resulting line does not exceed the
-// given screen width. Possible split points are after any punctuation or
-// whitespace. Whitespace after split points will be dropped.
-//
-// This function considers color tags to have no width.
-//
-// Text is always split at newline characters ('\n').
-//
-// BUG(tslocum) Text containing square brackets is not escaped properly.
-// Use TextView.SetWrapWidth where possible.
-//
-// Issue: https://codeberg.org/tslocum/cview/issues/27
-func WordWrap(text string, width int) (lines []string) {
-	colorTagIndices, _, _, _, escapeIndices, strippedText, _ := decomposeText([]byte(text), true, false)
-
-	// Find candidate breakpoints.
-	breakpoints := boundaryPattern.FindAllSubmatchIndex(strippedText, -1)
-	// Results in one entry for each candidate. Each entry is an array a of
-	// indices into strippedText where a[6] < 0 for newline/punctuation matches
-	// and a[4] < 0 for whitespace matches.
-
-	// Process stripped text one character at a time.
-	var (
-		colorPos, escapePos, breakpointPos, tagOffset      int
-		lastBreakpoint, lastContinuation, currentLineStart int
-		lineWidth, overflow                                int
-		forceBreak                                         bool
-	)
-	unescape := func(substr string, startIndex int) string {
-		// A helper function to unescape escaped tags.
-		for index := escapePos; index >= 0; index-- {
-			if index < len(escapeIndices) && startIndex > escapeIndices[index][0] && startIndex < escapeIndices[index][1]-1 {
-				pos := escapeIndices[index][1] - 2 - startIndex
-				if pos < 0 || pos > len(substr) { // Workaround for issue #27
-					return substr
-				}
-				return substr[:pos] + substr[pos+1:]
-			}
-		}
-		return substr
-	}
-	iterateString(string(strippedText), func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
-		// Handle tags.
-		for {
-			if colorPos < len(colorTagIndices) && textPos+tagOffset >= colorTagIndices[colorPos][0] && textPos+tagOffset < colorTagIndices[colorPos][1] {
-				// Colour tags.
-				tagOffset += colorTagIndices[colorPos][1] - colorTagIndices[colorPos][0]
-				colorPos++
-			} else if escapePos < len(escapeIndices) && textPos+tagOffset == escapeIndices[escapePos][1]-2 {
-				// Escape tags.
-				tagOffset++
-				escapePos++
-			} else {
-				break
-			}
-		}
-
-		// Is this a breakpoint?
-		if breakpointPos < len(breakpoints) && textPos+tagOffset == breakpoints[breakpointPos][0] {
-			// Yes, it is. Set up breakpoint infos depending on its type.
-			lastBreakpoint = breakpoints[breakpointPos][0] + tagOffset
-			lastContinuation = breakpoints[breakpointPos][1] + tagOffset
-			overflow = 0
-			forceBreak = main == '\n'
-			if breakpoints[breakpointPos][6] < 0 && !forceBreak {
-				lastBreakpoint++ // Don't skip punctuation.
-			}
-			breakpointPos++
-		}
-
-		// Check if a break is warranted.
-		if forceBreak || lineWidth > 0 && lineWidth+screenWidth > width {
-			breakpoint := lastBreakpoint
-			continuation := lastContinuation
-			if forceBreak {
-				breakpoint = textPos + tagOffset
-				continuation = textPos + tagOffset + 1
-				lastBreakpoint = 0
-				overflow = 0
-			} else if lastBreakpoint <= currentLineStart {
-				breakpoint = textPos + tagOffset
-				continuation = textPos + tagOffset
-				overflow = 0
-			}
-			lines = append(lines, unescape(text[currentLineStart:breakpoint], currentLineStart))
-			currentLineStart, lineWidth, forceBreak = continuation, overflow, false
-		}
-
-		// Remember the characters since the last breakpoint.
-		if lastBreakpoint > 0 && lastContinuation <= textPos+tagOffset {
-			overflow += screenWidth
-		}
-
-		// Advance.
-		lineWidth += screenWidth
-
-		// But if we're still inside a breakpoint, skip next character (whitespace).
-		if textPos+tagOffset < currentLineStart {
-			lineWidth -= screenWidth
-		}
-
-		return false
-	})
-
-	// Flush the rest.
-	if currentLineStart < len(text) {
-		lines = append(lines, unescape(text[currentLineStart:], currentLineStart))
-	}
-
-	return
-}
-
 // EscapeBytes escapes the given text such that color and/or region tags are not
 // recognized and substituted by the print functions of this package. For
 // example, to include a tag-like string in a box title or in a TextView:
@@ -641,16 +628,6 @@ func WordWrap(text string, width int) (lines []string) {
 //	fmt.Fprint(textView, cview.EscapeBytes(`["quoted"]`))
 func EscapeBytes(text []byte) []byte {
 	return nonEscapePattern.ReplaceAll(text, []byte("$1[]"))
-}
-
-// Escape escapes the given text such that color and/or region tags are not
-// recognized and substituted by the print functions of this package. For
-// example, to include a tag-like string in a box title or in a TextView:
-//
-//	box.SetTitle(cview.Escape("[squarebrackets]"))
-//	fmt.Fprint(textView, cview.Escape(`["quoted"]`))
-func Escape(text string) string {
-	return nonEscapePattern.ReplaceAllString(text, "$1[]")
 }
 
 // iterateString iterates through the given string one printed character at a

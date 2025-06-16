@@ -6,41 +6,46 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// CheckBox implements a simple box for boolean values which can be checked and
+// Checkbox implements a simple box for boolean values which can be checked and
 // unchecked.
-type CheckBox struct {
+//
+// See https://github.com/rivo/tview/wiki/Checkbox for an example.
+type Checkbox struct {
 	*Box
+
+	// Whether or not this checkbox is disabled/read-only.
+	disabled bool
 
 	// Whether or not this box is checked.
 	checked bool
 
-	// The text to be displayed before the checkbox.
-	label []byte
-
-	// The text to be displayed after the checkbox.
-	message []byte
+	// The text to be displayed before the input area.
+	label string
 
 	// The screen width of the label area. A value of 0 means use the width of
 	// the label text.
 	labelWidth int
 
-	// The label color.
-	labelColor tcell.Color
+	labelRight      string
+	labelRightWidth int
 
-	// The label color when focused.
-	labelColorFocused tcell.Color
+	// The label style.
+	labelStyle tcell.Style
 
-	// The background color of the input area.
-	fieldBackgroundColor tcell.Color
+	// The style of the unchecked checkbox.
+	uncheckedStyle tcell.Style
 
-	// The background color of the input area when focused.
-	fieldBackgroundColorFocused tcell.Color
+	// The style of the checked checkbox.
+	checkedStyle tcell.Style
 
-	// The text color of the input area.
-	fieldTextColor tcell.Color
+	// Teh style of the checkbox when it is currently focused.
+	focusStyle tcell.Style
 
-	// The text color of the input area when focused.
-	fieldTextColorFocused tcell.Color
+	// The string used to display an unchecked box.
+	uncheckedString string
+
+	// The string used to display a checked box.
+	checkedString string
 
 	// An optional function which is called when the user changes the checked
 	// state of this checkbox.
@@ -55,175 +60,219 @@ type CheckBox struct {
 	// this form item.
 	finished func(tcell.Key)
 
-	// The rune to show when the checkbox is checked
-	checkedRune rune
-
-	// An optional rune to show within the checkbox when it is focused
-	cursorRune rune
-
 	sync.RWMutex
 }
 
-// NewCheckBox returns a new input field.
-func NewCheckBox() *CheckBox {
-	return &CheckBox{
-		Box:                         NewBox(),
-		labelColor:                  Styles.SecondaryTextColor,
-		fieldBackgroundColor:        Styles.MoreContrastBackgroundColor,
-		fieldBackgroundColorFocused: Styles.ContrastBackgroundColor,
-		fieldTextColor:              Styles.PrimaryTextColor,
-		checkedRune:                 Styles.CheckBoxCheckedRune,
-		cursorRune:                  Styles.CheckBoxCursorRune,
-		labelColorFocused:           ColorUnset,
-		fieldTextColorFocused:       ColorUnset,
+// NewCheckbox returns a new input field.
+func NewCheckbox() *Checkbox {
+	return &Checkbox{
+		Box:             NewBox(),
+		labelStyle:      tcell.StyleDefault.Foreground(Styles.SecondaryTextColor),
+		uncheckedStyle:  tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
+		checkedStyle:    tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
+		focusStyle:      tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.ContrastBackgroundColor),
+		uncheckedString: " ",
+		checkedString:   "X",
 	}
 }
 
-// SetChecked sets the state of the checkbox.
-func (c *CheckBox) SetChecked(checked bool) {
+// SetChecked sets the state of the checkbox. This also triggers the "changed"
+// callback if the state changes with this call.
+func (c *Checkbox) SetChecked(checked bool) {
 	c.Lock()
 	defer c.Unlock()
 
-	c.checked = checked
-}
-
-// SetCheckedRune sets the rune to show when the checkbox is checked.
-func (c *CheckBox) SetCheckedRune(rune rune) {
-	c.Lock()
-	defer c.Unlock()
-
-	c.checkedRune = rune
-}
-
-// SetCursorRune sets the rune to show within the checkbox when it is focused.
-func (c *CheckBox) SetCursorRune(rune rune) {
-	c.Lock()
-	defer c.Unlock()
-
-	c.cursorRune = rune
+	if c.checked != checked {
+		if c.changed != nil {
+			c.changed(checked)
+		}
+		c.checked = checked
+	}
 }
 
 // IsChecked returns whether or not the box is checked.
-func (c *CheckBox) IsChecked() bool {
+func (c *Checkbox) IsChecked() bool {
 	c.RLock()
 	defer c.RUnlock()
-
 	return c.checked
 }
 
 // SetLabel sets the text to be displayed before the input area.
-func (c *CheckBox) SetLabel(label string) {
+func (c *Checkbox) SetLabel(label string) {
 	c.Lock()
 	defer c.Unlock()
-
-	c.label = []byte(label)
+	c.label = label
 }
 
 // GetLabel returns the text to be displayed before the input area.
-func (c *CheckBox) GetLabel() string {
+func (c *Checkbox) GetLabel() string {
 	c.RLock()
 	defer c.RUnlock()
-
-	return string(c.label)
+	return c.label
 }
 
-// SetMessage sets the text to be displayed after the checkbox
-func (c *CheckBox) SetMessage(message string) {
+// SetLabel sets the text to be displayed before the input area.
+func (c *Checkbox) SetLabelRight(labelRight string) {
 	c.Lock()
 	defer c.Unlock()
-
-	c.message = []byte(message)
+	c.labelRight = labelRight
 }
 
-// GetMessage returns the text to be displayed after the checkbox
-func (c *CheckBox) GetMessage() string {
+// GetLabel returns the text to be displayed before the input area.
+func (c *Checkbox) GetLabelRight() string {
 	c.RLock()
 	defer c.RUnlock()
-
-	return string(c.message)
+	return c.labelRight
 }
 
 // SetLabelWidth sets the screen width of the label. A value of 0 will cause the
 // primitive to use the width of the label string.
-func (c *CheckBox) SetLabelWidth(width int) {
+func (c *Checkbox) SetLabelWidth(width int) {
 	c.Lock()
 	defer c.Unlock()
-
 	c.labelWidth = width
 }
 
-// SetLabelColor sets the color of the label.
-func (c *CheckBox) SetLabelColor(color tcell.Color) {
+// SetLabelWidth sets the screen width of the label. A value of 0 will cause the
+// primitive to use the width of the label string.
+func (c *Checkbox) SetLabelRightWidth(width int) {
 	c.Lock()
 	defer c.Unlock()
-
-	c.labelColor = color
+	c.labelRightWidth = width
 }
 
-// SetLabelColorFocused sets the color of the label when focused.
-func (c *CheckBox) SetLabelColorFocused(color tcell.Color) {
+// SetLabelColor sets the color of the label.
+func (c *Checkbox) SetLabelColor(color tcell.Color) {
 	c.Lock()
 	defer c.Unlock()
+	c.labelStyle = c.labelStyle.Foreground(color)
+}
 
-	c.labelColorFocused = color
+// SetLabelStyle sets the style of the label.
+func (c *Checkbox) SetLabelStyle(style tcell.Style) {
+	c.Lock()
+	defer c.Unlock()
+	c.labelStyle = style
+}
+
+func (c *Checkbox) SetLabelColorFocused(color tcell.Color) {
+	c.Lock()
+	defer c.Unlock()
+	c.labelStyle = c.labelStyle.Foreground(color)
+}
+
+func (c *Checkbox) SetFieldTextColorFocused(color tcell.Color) {
+	c.Lock()
+	defer c.Unlock()
+	c.focusStyle = c.focusStyle.Foreground(color)
+}
+
+func (c *Checkbox) SetFieldBackgroundColorFocused(color tcell.Color) {
+	c.Lock()
+	defer c.Unlock()
+	c.focusStyle = c.focusStyle.Background(color)
 }
 
 // SetFieldBackgroundColor sets the background color of the input area.
-func (c *CheckBox) SetFieldBackgroundColor(color tcell.Color) {
+func (c *Checkbox) SetFieldBackgroundColor(color tcell.Color) {
 	c.Lock()
 	defer c.Unlock()
-
-	c.fieldBackgroundColor = color
-}
-
-// SetFieldBackgroundColorFocused sets the background color of the input area when focused.
-func (c *CheckBox) SetFieldBackgroundColorFocused(color tcell.Color) {
-	c.Lock()
-	defer c.Unlock()
-
-	c.fieldBackgroundColorFocused = color
+	c.uncheckedStyle = c.uncheckedStyle.Background(color)
+	c.checkedStyle = c.checkedStyle.Background(color)
+	c.focusStyle = c.focusStyle.Foreground(color)
 }
 
 // SetFieldTextColor sets the text color of the input area.
-func (c *CheckBox) SetFieldTextColor(color tcell.Color) {
+func (c *Checkbox) SetFieldTextColor(color tcell.Color) {
 	c.Lock()
 	defer c.Unlock()
-
-	c.fieldTextColor = color
+	c.uncheckedStyle = c.uncheckedStyle.Foreground(color)
+	c.checkedStyle = c.checkedStyle.Foreground(color)
+	c.focusStyle = c.focusStyle.Background(color)
 }
 
-// SetFieldTextColorFocused sets the text color of the input area when focused.
-func (c *CheckBox) SetFieldTextColorFocused(color tcell.Color) {
+// SetUncheckedStyle sets the style of the unchecked checkbox.
+func (c *Checkbox) SetUncheckedStyle(style tcell.Style) {
 	c.Lock()
 	defer c.Unlock()
-
-	c.fieldTextColorFocused = color
+	c.uncheckedStyle = style
 }
 
-// GetFieldHeight returns the height of the field.
-func (c *CheckBox) GetFieldHeight() int {
-	return 1
+// SetCheckedStyle sets the style of the checked checkbox.
+func (c *Checkbox) SetCheckedStyle(style tcell.Style) {
+	c.Lock()
+	defer c.Unlock()
+	c.checkedStyle = style
+}
+
+// SetActivatedStyle sets the style of the checkbox when it is currently
+// focused.
+func (c *Checkbox) SetActivatedStyle(style tcell.Style) {
+	c.Lock()
+	defer c.Unlock()
+	c.focusStyle = style
+}
+
+// SetCheckedString sets the string to be displayed when the checkbox is
+// checked (defaults to "X"). The string may contain color tags (consider
+// adapting the checkbox's various styles accordingly). See [Escape] in
+// case you want to display square brackets.
+func (c *Checkbox) SetCheckedString(checked string) {
+	c.Lock()
+	defer c.Unlock()
+	c.checkedString = checked
+}
+
+// SetUncheckedString sets the string to be displayed when the checkbox is
+// not checked (defaults to the empty space " "). The string may contain color
+// tags (consider adapting the checkbox's various styles accordingly). See
+// [Escape] in case you want to display square brackets.
+func (c *Checkbox) SetUncheckedString(unchecked string) {
+	c.Lock()
+	defer c.Unlock()
+	c.uncheckedString = unchecked
+}
+
+// SetFormAttributes sets attributes shared by all form items.
+func (c *Checkbox) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) {
+	c.Lock()
+	defer c.Unlock()
+	c.labelWidth = labelWidth
+	c.SetLabelColor(labelColor)
+	c.backgroundColor = bgColor
+	c.SetFieldTextColor(fieldTextColor)
+	c.SetFieldBackgroundColor(fieldBgColor)
 }
 
 // GetFieldWidth returns this primitive's field width.
-func (c *CheckBox) GetFieldWidth() int {
+func (c *Checkbox) GetFieldWidth() int {
 	c.RLock()
 	defer c.RUnlock()
+	return 1
+}
 
-	if len(c.message) == 0 {
-		return 1
+// GetFieldHeight returns this primitive's field height.
+func (c *Checkbox) GetFieldHeight() int {
+	c.RLock()
+	defer c.RUnlock()
+	return 1
+}
+
+// SetDisabled sets whether or not the item is disabled / read-only.
+func (c *Checkbox) SetDisabled(disabled bool) {
+	c.Lock()
+	defer c.Unlock()
+	c.disabled = disabled
+	if c.finished != nil {
+		c.finished(-1)
 	}
-
-	return 2 + len(c.message)
 }
 
 // SetChangedFunc sets a handler which is called when the checked state of this
-// checkbox was changed by the user. The handler function receives the new
-// state.
-func (c *CheckBox) SetChangedFunc(handler func(checked bool)) {
+// checkbox was changed. The handler function receives the new state.
+func (c *Checkbox) SetChangedFunc(handler func(checked bool)) {
 	c.Lock()
 	defer c.Unlock()
-
 	c.changed = handler
 }
 
@@ -234,49 +283,38 @@ func (c *CheckBox) SetChangedFunc(handler func(checked bool)) {
 //   - KeyEscape: Abort text input.
 //   - KeyTab: Move to the next field.
 //   - KeyBacktab: Move to the previous field.
-func (c *CheckBox) SetDoneFunc(handler func(key tcell.Key)) {
+func (c *Checkbox) SetDoneFunc(handler func(key tcell.Key)) {
 	c.Lock()
 	defer c.Unlock()
-
 	c.done = handler
 }
 
 // SetFinishedFunc sets a callback invoked when the user leaves this form item.
-func (c *CheckBox) SetFinishedFunc(handler func(key tcell.Key)) {
+func (c *Checkbox) SetFinishedFunc(handler func(key tcell.Key)) {
 	c.Lock()
 	defer c.Unlock()
-
 	c.finished = handler
 }
 
-// Draw draws this primitive onto the screen.
-func (c *CheckBox) Draw(screen tcell.Screen) {
-	if !c.GetVisible() {
+// Focus is called when this primitive receives focus.
+func (c *Checkbox) Focus(delegate func(p Primitive)) {
+	c.Lock()
+	defer c.Unlock()
+	// If we're part of a form and this item is disabled, there's nothing the
+	// user can do here so we're finished.
+	if c.finished != nil && c.disabled {
+		c.finished(-1)
 		return
 	}
 
+	c.Box.Focus(delegate)
+}
+
+// Draw draws this primitive onto the screen.
+func (c *Checkbox) Draw(screen tcell.Screen) {
+	c.RLock()
+	defer c.RUnlock()
 	c.Box.Draw(screen)
-
-	c.Lock()
-	defer c.Unlock()
-
-	hasFocus := c.GetFocusable().HasFocus()
-
-	// Select colors
-	labelColor := c.labelColor
-	fieldBackgroundColor := c.fieldBackgroundColor
-	fieldTextColor := c.fieldTextColor
-	if hasFocus {
-		if c.labelColorFocused != ColorUnset {
-			labelColor = c.labelColorFocused
-		}
-		if c.fieldBackgroundColorFocused != ColorUnset {
-			fieldBackgroundColor = c.fieldBackgroundColorFocused
-		}
-		if c.fieldTextColorFocused != ColorUnset {
-			fieldTextColor = c.fieldTextColorFocused
-		}
-	}
 
 	// Prepare
 	x, y, width, height := c.GetInnerRect()
@@ -286,62 +324,88 @@ func (c *CheckBox) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
+	_, labelBg, _ := c.labelStyle.Decompose()
 	if c.labelWidth > 0 {
 		labelWidth := c.labelWidth
-		if labelWidth > rightLimit-x {
-			labelWidth = rightLimit - x
+		if labelWidth > width {
+			labelWidth = width
 		}
-		Print(screen, c.label, x, y, labelWidth, AlignLeft, labelColor)
+		printWithStyle(screen, c.label, x, y, 0, labelWidth, AlignLeft, c.labelStyle, labelBg == tcell.ColorDefault)
 		x += labelWidth
+		width -= labelWidth
 	} else {
-		_, drawnWidth := Print(screen, c.label, x, y, rightLimit-x, AlignLeft, labelColor)
+		_, _, drawnWidth := printWithStyle(screen, c.label, x, y, 0, width, AlignLeft, c.labelStyle, labelBg == tcell.ColorDefault)
 		x += drawnWidth
+		width -= drawnWidth
 	}
 
 	// Draw checkbox.
-	fieldStyle := tcell.StyleDefault.Background(fieldBackgroundColor).Foreground(fieldTextColor)
-
-	checkedRune := c.checkedRune
-	if !c.checked {
-		checkedRune = ' '
+	str := c.uncheckedString
+	style := c.uncheckedStyle
+	if c.checked {
+		str = c.checkedString
+		style = c.checkedStyle
 	}
-	rightRune := ' '
-	if c.cursorRune != 0 && hasFocus {
-		rightRune = c.cursorRune
+	if c.disabled {
+		style = style.Background(c.backgroundColor)
 	}
-	screen.SetContent(x, y, ' ', nil, fieldStyle)
-	screen.SetContent(x+1, y, checkedRune, nil, fieldStyle)
-	screen.SetContent(x+2, y, rightRune, nil, fieldStyle)
+	if c.HasFocus() {
+		style = c.focusStyle
+	}
+	_, _, drawnWidth := printWithStyle(screen, str, x, y, 0, width, AlignLeft, style, c.disabled)
+	x += drawnWidth
+	width -= drawnWidth
 
-	if len(c.message) > 0 {
-		Print(screen, c.message, x+4, y, len(c.message), AlignLeft, labelColor)
+	if c.labelRight != "" {
+		// Draw label right.
+		_, labelRightBg, _ := c.labelStyle.Decompose()
+		if c.labelRightWidth > 0 {
+			labelRightWidth := c.labelRightWidth
+			if labelRightWidth > width {
+				labelRightWidth = width
+			}
+			printWithStyle(screen, c.labelRight, x, y, 0, labelRightWidth, AlignLeft, c.labelStyle, labelRightBg == tcell.ColorDefault)
+		} else {
+			printWithStyle(screen, c.labelRight, x, y, 0, width, AlignLeft, c.labelStyle, labelRightBg == tcell.ColorDefault)
+		}
 	}
 }
 
 // InputHandler returns the handler for this primitive.
-func (c *CheckBox) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return c.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		if HitShortcut(event, Keys.Select, Keys.Select2) {
-			c.Lock()
+		if c.disabled {
+			return
+		}
+
+		// Process key event.
+		switch key := event.Key(); key {
+		case tcell.KeyRune, tcell.KeyEnter: // Check.
+			if key == tcell.KeyRune && event.Rune() != ' ' {
+				break
+			}
 			c.checked = !c.checked
-			c.Unlock()
 			if c.changed != nil {
 				c.changed(c.checked)
 			}
-		} else if HitShortcut(event, Keys.Cancel, Keys.MovePreviousField, Keys.MoveNextField) {
+		case tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
 			if c.done != nil {
-				c.done(event.Key())
+				c.done(key)
 			}
 			if c.finished != nil {
-				c.finished(event.Key())
+				c.finished(key)
 			}
 		}
 	})
 }
 
 // MouseHandler returns the mouse handler for this primitive.
-func (c *CheckBox) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+func (c *Checkbox) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return c.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if c.disabled {
+			return false, nil
+		}
+
 		x, y := event.Position()
 		_, rectY, _, _ := c.GetInnerRect()
 		if !c.InRect(x, y) {
@@ -349,13 +413,17 @@ func (c *CheckBox) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		}
 
 		// Process mouse event.
-		if action == MouseLeftClick && y == rectY {
-			setFocus(c)
-			c.checked = !c.checked
-			if c.changed != nil {
-				c.changed(c.checked)
+		if y == rectY {
+			if action == MouseLeftDown {
+				setFocus(c)
+				consumed = true
+			} else if action == MouseLeftClick {
+				c.checked = !c.checked
+				if c.changed != nil {
+					c.changed(c.checked)
+				}
+				consumed = true
 			}
-			consumed = true
 		}
 
 		return

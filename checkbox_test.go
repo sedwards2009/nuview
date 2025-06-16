@@ -14,7 +14,7 @@ func TestCheckBox(t *testing.T) {
 
 	// Initialize
 
-	c := NewCheckBox()
+	c := NewCheckbox()
 	if c.IsChecked() {
 		t.Errorf("failed to initialize CheckBox: incorrect initial state: expected unchecked, got checked")
 	} else if c.GetLabel() != "" {

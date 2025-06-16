@@ -11,7 +11,7 @@ func main() {
 
 	app.EnableMouse(true)
 
-	checkbox := cview.NewCheckBox()
+	checkbox := cview.NewCheckbox()
 	checkbox.SetLabel("Hit Enter to check box: ")
 
 	app.SetRoot(checkbox, true)
