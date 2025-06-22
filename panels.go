@@ -381,8 +381,19 @@ func (p *Panels) MouseHandler() func(action MouseAction, event *tcell.EventMouse
 	})
 }
 
-// Support backwards compatibility with Pages.
-type page = panel
+// InputHandler returns the handler for this primitive.
+func (p *Panels) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return p.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		for _, page := range p.panels {
+			if page.Item.GetFocusable().HasFocus() {
+				if handler := page.Item.InputHandler(); handler != nil {
+					handler(event, setFocus)
+					return
+				}
+			}
+		}
+	})
+}
 
 // Pages is a wrapper around Panels.
 //

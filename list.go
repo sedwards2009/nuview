@@ -212,12 +212,12 @@ func NewList() *List {
 		Box:                     NewBox(),
 		showSecondaryText:       true,
 		scrollBarVisibility:     ScrollBarAuto,
-		mainTextColor:           Styles.PrimaryTextColor,
-		secondaryTextColor:      Styles.TertiaryTextColor,
-		shortcutColor:           Styles.SecondaryTextColor,
-		selectedTextColor:       Styles.PrimitiveBackgroundColor,
-		scrollBarColor:          Styles.ScrollBarColor,
-		selectedBackgroundColor: Styles.PrimaryTextColor,
+		mainTextColor:           Styles.ListMainTextColor,
+		secondaryTextColor:      Styles.ListSecondaryTextColor,
+		shortcutColor:           Styles.ListShortcutColor,
+		selectedTextColor:       Styles.ListSelectedTextColor,
+		scrollBarColor:          Styles.ListScrollBarColor,
+		selectedBackgroundColor: Styles.ListSelectedBackgroundColor,
 	}
 
 	l.ContextMenu = NewContextMenu(l)

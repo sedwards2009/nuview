@@ -90,19 +90,19 @@ type DropDown struct {
 	labelColor tcell.Color
 
 	// The label color when focused.
-	labelColorFocused tcell.Color
+	labelFocusedColor tcell.Color
 
 	// The background color of the input area.
 	fieldBackgroundColor tcell.Color
 
 	// The background color of the input area when focused.
-	fieldBackgroundColorFocused tcell.Color
+	fieldBackgroundFocusedColor tcell.Color
 
 	// The text color of the input area.
 	fieldTextColor tcell.Color
 
 	// The text color of the input area when focused.
-	fieldTextColorFocused tcell.Color
+	fieldTextFocusedColor tcell.Color
 
 	// The color for prefixes.
 	prefixTextColor tcell.Color
@@ -171,9 +171,9 @@ func NewDropDown() *DropDown {
 		dropDownOpenSymbol:          Styles.DropDownOpenSymbol,
 		dropDownSelectedSymbol:      Styles.DropDownSelectedSymbol,
 		abbreviationChars:           Styles.DropDownAbbreviationChars,
-		labelColorFocused:           ColorUnset,
-		fieldBackgroundColorFocused: ColorUnset,
-		fieldTextColorFocused:       ColorUnset,
+		labelFocusedColor:           ColorUnset,
+		fieldBackgroundFocusedColor: ColorUnset,
+		fieldTextFocusedColor:       ColorUnset,
 	}
 
 	if sym := d.dropDownSelectedSymbol; sym != 0 {
@@ -318,12 +318,12 @@ func (d *DropDown) SetLabelColor(color tcell.Color) {
 	d.labelColor = color
 }
 
-// SetLabelColorFocused sets the color of the label when focused.
-func (d *DropDown) SetLabelColorFocused(color tcell.Color) {
+// SetLabelFocusedColor sets the color of the label when focused.
+func (d *DropDown) SetLabelFocusedColor(color tcell.Color) {
 	d.Lock()
 	defer d.Unlock()
 
-	d.labelColorFocused = color
+	d.labelFocusedColor = color
 }
 
 // SetFieldBackgroundColor sets the background color of the options area.
@@ -334,12 +334,12 @@ func (d *DropDown) SetFieldBackgroundColor(color tcell.Color) {
 	d.fieldBackgroundColor = color
 }
 
-// SetFieldBackgroundColorFocused sets the background color of the options area when focused.
-func (d *DropDown) SetFieldBackgroundColorFocused(color tcell.Color) {
+// SetFieldBackgroundFocusedColor sets the background color of the options area when focused.
+func (d *DropDown) SetFieldBackgroundFocusedColor(color tcell.Color) {
 	d.Lock()
 	defer d.Unlock()
 
-	d.fieldBackgroundColorFocused = color
+	d.fieldBackgroundFocusedColor = color
 }
 
 // SetFieldTextColor sets the text color of the options area.
@@ -351,11 +351,11 @@ func (d *DropDown) SetFieldTextColor(color tcell.Color) {
 }
 
 // SetFieldTextColorFocused sets the text color of the options area when focused.
-func (d *DropDown) SetFieldTextColorFocused(color tcell.Color) {
+func (d *DropDown) SetFieldTextFocusedColor(color tcell.Color) {
 	d.Lock()
 	defer d.Unlock()
 
-	d.fieldTextColorFocused = color
+	d.fieldTextFocusedColor = color
 }
 
 // SetDropDownTextColor sets text color of the drop-down list.
@@ -547,14 +547,14 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	fieldBackgroundColor := d.fieldBackgroundColor
 	fieldTextColor := d.fieldTextColor
 	if hasFocus {
-		if d.labelColorFocused != ColorUnset {
-			labelColor = d.labelColorFocused
+		if d.labelFocusedColor != ColorUnset {
+			labelColor = d.labelFocusedColor
 		}
-		if d.fieldBackgroundColorFocused != ColorUnset {
-			fieldBackgroundColor = d.fieldBackgroundColorFocused
+		if d.fieldBackgroundFocusedColor != ColorUnset {
+			fieldBackgroundColor = d.fieldBackgroundFocusedColor
 		}
-		if d.fieldTextColorFocused != ColorUnset {
-			fieldTextColor = d.fieldTextColorFocused
+		if d.fieldTextFocusedColor != ColorUnset {
+			fieldTextColor = d.fieldTextFocusedColor
 		}
 	}
 

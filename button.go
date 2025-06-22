@@ -17,10 +17,10 @@ type Button struct {
 	labelColor tcell.Color
 
 	// The label color when the button is in focus.
-	labelColorFocused tcell.Color
+	labelFocusedColor tcell.Color
 
 	// The background color when the button is in focus.
-	backgroundColorFocused tcell.Color
+	backgroundFocusedColor tcell.Color
 
 	// An optional function which is called when the button was selected.
 	selected func()
@@ -39,14 +39,14 @@ type Button struct {
 func NewButton(label string) *Button {
 	box := NewBox()
 	box.SetRect(0, 0, TaggedStringWidth(label)+4, 1)
-	box.SetBackgroundColor(Styles.MoreContrastBackgroundColor)
+	box.SetBackgroundColor(Styles.ButtonBackgroundColor)
 	return &Button{
 		Box:                    box,
 		label:                  []byte(label),
-		labelColor:             Styles.PrimaryTextColor,
-		labelColorFocused:      Styles.PrimaryTextColor,
+		labelColor:             Styles.ButtonLabelColor,
+		labelFocusedColor:      Styles.ButtonLabelFocusedColor,
 		cursorRune:             Styles.ButtonCursorRune,
-		backgroundColorFocused: Styles.ContrastBackgroundColor,
+		backgroundFocusedColor: Styles.ButtonBackgroundFocusedColor,
 	}
 }
 
@@ -80,7 +80,7 @@ func (b *Button) SetLabelColorFocused(color tcell.Color) {
 	b.Lock()
 	defer b.Unlock()
 
-	b.labelColorFocused = color
+	b.labelFocusedColor = color
 }
 
 // SetCursorRune sets the rune to show within the button when it is focused.
@@ -97,7 +97,7 @@ func (b *Button) SetBackgroundColorFocused(color tcell.Color) {
 	b.Lock()
 	defer b.Unlock()
 
-	b.backgroundColorFocused = color
+	b.backgroundFocusedColor = color
 }
 
 // SetSelectedFunc sets a handler which is called when the button was selected.
@@ -135,8 +135,8 @@ func (b *Button) Draw(screen tcell.Screen) {
 	borderColor := b.borderColor
 	backgroundColor := b.backgroundColor
 	if b.focus.HasFocus() {
-		b.backgroundColor = b.backgroundColorFocused
-		b.borderColor = b.labelColorFocused
+		b.backgroundColor = b.backgroundFocusedColor
+		b.borderColor = b.labelFocusedColor
 		defer func() {
 			b.borderColor = borderColor
 		}()
@@ -152,7 +152,7 @@ func (b *Button) Draw(screen tcell.Screen) {
 		y = y + height/2
 		labelColor := b.labelColor
 		if b.focus.HasFocus() {
-			labelColor = b.labelColorFocused
+			labelColor = b.labelFocusedColor
 		}
 		_, pw := Print(screen, b.label, x, y, width, AlignCenter, labelColor)
 

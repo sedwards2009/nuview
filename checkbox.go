@@ -38,14 +38,13 @@ type Checkbox struct {
 	// The style of the checked checkbox.
 	checkedStyle tcell.Style
 
-	// Teh style of the checkbox when it is currently focused.
+	// The style of the checkbox when it is currently focused.
 	focusStyle tcell.Style
 
-	// The string used to display an unchecked box.
-	uncheckedString string
-
-	// The string used to display a checked box.
-	checkedString string
+	uncheckedString       string // String shown when unchecked
+	checkedString         string // String shown when checked
+	cursorCheckedString   string // String shown when checked and the cursor is on it
+	cursorUncheckedString string // String shown when unchecked and the cursor is on it
 
 	// An optional function which is called when the user changes the checked
 	// state of this checkbox.
@@ -66,13 +65,16 @@ type Checkbox struct {
 // NewCheckbox returns a new input field.
 func NewCheckbox() *Checkbox {
 	return &Checkbox{
-		Box:             NewBox(),
-		labelStyle:      tcell.StyleDefault.Foreground(Styles.SecondaryTextColor),
-		uncheckedStyle:  tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
-		checkedStyle:    tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
-		focusStyle:      tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.ContrastBackgroundColor),
-		uncheckedString: " ",
-		checkedString:   "X",
+		Box:            NewBox(),
+		labelStyle:     Styles.CheckboxLabelStyle,
+		uncheckedStyle: Styles.CheckboxUncheckedStyle,
+		checkedStyle:   Styles.CheckboxCheckedStyle,
+		focusStyle:     Styles.CheckboxFocusStyle,
+
+		uncheckedString:       Styles.CheckboxUncheckedString,
+		checkedString:         Styles.CheckboxCheckedString,
+		cursorCheckedString:   Styles.CheckboxCursorCheckedString,
+		cursorUncheckedString: Styles.CheckboxCursorUncheckedString,
 	}
 }
 
@@ -155,19 +157,19 @@ func (c *Checkbox) SetLabelStyle(style tcell.Style) {
 	c.labelStyle = style
 }
 
-func (c *Checkbox) SetLabelColorFocused(color tcell.Color) {
+func (c *Checkbox) SetLabelFocusedColor(color tcell.Color) {
 	c.Lock()
 	defer c.Unlock()
 	c.labelStyle = c.labelStyle.Foreground(color)
 }
 
-func (c *Checkbox) SetFieldTextColorFocused(color tcell.Color) {
+func (c *Checkbox) SetFieldTextFocusedColor(color tcell.Color) {
 	c.Lock()
 	defer c.Unlock()
 	c.focusStyle = c.focusStyle.Foreground(color)
 }
 
-func (c *Checkbox) SetFieldBackgroundColorFocused(color tcell.Color) {
+func (c *Checkbox) SetFieldBackgroundFocusedColor(color tcell.Color) {
 	c.Lock()
 	defer c.Unlock()
 	c.focusStyle = c.focusStyle.Background(color)
@@ -342,16 +344,22 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	// Draw checkbox.
 	str := c.uncheckedString
 	style := c.uncheckedStyle
+	if c.disabled {
+		style = style.Background(c.backgroundColor)
+	}
 	if c.checked {
 		str = c.checkedString
 		style = c.checkedStyle
 	}
-	if c.disabled {
-		style = style.Background(c.backgroundColor)
-	}
 	if c.HasFocus() {
 		style = c.focusStyle
+		if c.checked {
+			str = c.cursorCheckedString
+		} else {
+			str = c.cursorUncheckedString
+		}
 	}
+
 	_, _, drawnWidth := printWithStyle(screen, str, x, y, 0, width, AlignLeft, style, c.disabled)
 	x += drawnWidth
 	width -= drawnWidth

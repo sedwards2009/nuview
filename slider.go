@@ -22,19 +22,19 @@ type Slider struct {
 	labelColor tcell.Color
 
 	// The label color when focused.
-	labelColorFocused tcell.Color
+	labelFocusedColor tcell.Color
 
 	// The background color of the input area.
 	fieldBackgroundColor tcell.Color
 
 	// The background color of the input area when focused.
-	fieldBackgroundColorFocused tcell.Color
+	fieldBackgroundFocusedColor tcell.Color
 
 	// The text color of the input area.
 	fieldTextColor tcell.Color
 
 	// The text color of the input area when focused.
-	fieldTextColorFocused tcell.Color
+	fieldTextFocusedColor tcell.Color
 
 	// The amount to increment by when modified via keyboard.
 	increment int
@@ -65,10 +65,10 @@ func NewSlider() *Slider {
 		increment:                   10,
 		labelColor:                  Styles.SecondaryTextColor,
 		fieldBackgroundColor:        Styles.MoreContrastBackgroundColor,
-		fieldBackgroundColorFocused: Styles.ContrastBackgroundColor,
+		fieldBackgroundFocusedColor: Styles.ContrastBackgroundColor,
 		fieldTextColor:              Styles.PrimaryTextColor,
-		labelColorFocused:           ColorUnset,
-		fieldTextColorFocused:       ColorUnset,
+		labelFocusedColor:           ColorUnset,
+		fieldTextFocusedColor:       ColorUnset,
 	}
 	return s
 }
@@ -106,12 +106,12 @@ func (s *Slider) SetLabelColor(color tcell.Color) {
 	s.labelColor = color
 }
 
-// SetLabelColorFocused sets the color of the label when focused.
-func (s *Slider) SetLabelColorFocused(color tcell.Color) {
+// SetLabelFocusedColor sets the color of the label when focused.
+func (s *Slider) SetLabelFocusedColor(color tcell.Color) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.labelColorFocused = color
+	s.labelFocusedColor = color
 }
 
 // SetFieldBackgroundColor sets the background color of the input area.
@@ -122,12 +122,12 @@ func (s *Slider) SetFieldBackgroundColor(color tcell.Color) {
 	s.fieldBackgroundColor = color
 }
 
-// SetFieldBackgroundColorFocused sets the background color of the input area when focused.
-func (s *Slider) SetFieldBackgroundColorFocused(color tcell.Color) {
+// SetFieldBackgroundFocusedColor sets the background color of the input area when focused.
+func (s *Slider) SetFieldBackgroundFocusedColor(color tcell.Color) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.fieldBackgroundColorFocused = color
+	s.fieldBackgroundFocusedColor = color
 }
 
 // SetFieldTextColor sets the text color of the input area.
@@ -139,11 +139,11 @@ func (s *Slider) SetFieldTextColor(color tcell.Color) {
 }
 
 // SetFieldTextColorFocused sets the text color of the input area when focused.
-func (s *Slider) SetFieldTextColorFocused(color tcell.Color) {
+func (s *Slider) SetFieldTextFocusedColor(color tcell.Color) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.fieldTextColorFocused = color
+	s.fieldTextFocusedColor = color
 }
 
 // GetFieldHeight returns the height of the field.
@@ -212,14 +212,14 @@ func (s *Slider) Draw(screen tcell.Screen) {
 	fieldBackgroundColor := s.fieldBackgroundColor
 	fieldTextColor := s.fieldTextColor
 	if hasFocus {
-		if s.labelColorFocused != ColorUnset {
-			labelColor = s.labelColorFocused
+		if s.labelFocusedColor != ColorUnset {
+			labelColor = s.labelFocusedColor
 		}
-		if s.fieldBackgroundColorFocused != ColorUnset {
-			fieldBackgroundColor = s.fieldBackgroundColorFocused
+		if s.fieldBackgroundFocusedColor != ColorUnset {
+			fieldBackgroundColor = s.fieldBackgroundFocusedColor
 		}
-		if s.fieldTextColorFocused != ColorUnset {
-			fieldTextColor = s.fieldTextColorFocused
+		if s.fieldTextFocusedColor != ColorUnset {
+			fieldTextColor = s.fieldTextFocusedColor
 		}
 	}
 

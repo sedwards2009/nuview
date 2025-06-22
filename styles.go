@@ -23,11 +23,44 @@ type Theme struct {
 	MoreContrastBackgroundColor tcell.Color // Background color for even more contrasting elements.
 
 	// Button
-	ButtonCursorRune rune // The symbol to draw at the end of button labels when focused.
+	ButtonCursorRune             rune // The symbol to draw at the end of button labels when focused.
+	ButtonLabelColor             tcell.Color
+	ButtonLabelFocusedColor      tcell.Color
+	ButtonBackgroundColor        tcell.Color
+	ButtonBackgroundFocusedColor tcell.Color
 
 	// Check box
-	CheckBoxCheckedRune rune
-	CheckBoxCursorRune  rune // The symbol to draw within the checkbox when focused.
+	CheckboxLabelStyle            tcell.Style
+	CheckboxUncheckedStyle        tcell.Style
+	CheckboxCheckedStyle          tcell.Style
+	CheckboxFocusStyle            tcell.Style
+	CheckboxCheckedString         string
+	CheckboxUncheckedString       string
+	CheckboxCursorCheckedString   string
+	CheckboxCursorUncheckedString string
+
+	// Input field
+	InputFieldLabelColor                              tcell.Color
+	InputFieldFieldBackgroundColor                    tcell.Color
+	InputFieldFieldBackgroundFocusedColor             tcell.Color
+	InputFieldFieldTextColor                          tcell.Color
+	InputFieldFieldTextFocusedColor                   tcell.Color
+	InputFieldPlaceholderTextColor                    tcell.Color
+	InputFieldAutocompleteListTextColor               tcell.Color
+	InputFieldAutocompleteListBackgroundColor         tcell.Color
+	InputFieldAutocompleteListSelectedTextColor       tcell.Color
+	InputFieldAutocompleteListSelectedBackgroundColor tcell.Color
+	InputFieldAutocompleteSuggestionTextColor         tcell.Color
+	InputFieldFieldNoteTextColor                      tcell.Color
+	InputFieldLabelFocusedColor                       tcell.Color
+	InputFieldPlaceholderTextFocusedColor             tcell.Color
+
+	ListMainTextColor           tcell.Color
+	ListSecondaryTextColor      tcell.Color
+	ListShortcutColor           tcell.Color
+	ListSelectedTextColor       tcell.Color
+	ListScrollBarColor          tcell.Color
+	ListSelectedBackgroundColor tcell.Color
 
 	// Context menu
 	ContextMenuPaddingTop    int
@@ -68,10 +101,42 @@ var Styles = Theme{
 	ContrastBackgroundColor:     tcell.ColorGreen.TrueColor(),
 	MoreContrastBackgroundColor: tcell.ColorDarkGreen.TrueColor(),
 
-	ButtonCursorRune: '◀',
+	ButtonCursorRune:             '◀',
+	ButtonLabelColor:             tcell.ColorWhite.TrueColor(),
+	ButtonLabelFocusedColor:      tcell.ColorWhite.TrueColor(),
+	ButtonBackgroundColor:        tcell.ColorDarkGreen.TrueColor(),
+	ButtonBackgroundFocusedColor: tcell.ColorGreen.TrueColor(),
 
-	CheckBoxCheckedRune: 'X',
-	CheckBoxCursorRune:  '◀',
+	CheckboxLabelStyle:            tcell.StyleDefault.Foreground(tcell.ColorYellow.TrueColor()),
+	CheckboxUncheckedStyle:        tcell.StyleDefault.Background(tcell.ColorGreen.TrueColor()).Foreground(tcell.ColorWhite.TrueColor()),
+	CheckboxCheckedStyle:          tcell.StyleDefault.Background(tcell.ColorGreen.TrueColor()).Foreground(tcell.ColorWhite.TrueColor()),
+	CheckboxFocusStyle:            tcell.StyleDefault.Background(tcell.ColorWhite.TrueColor()).Foreground(tcell.ColorGreen.TrueColor()),
+	CheckboxCheckedString:         "[X]",
+	CheckboxUncheckedString:       "[ ]",
+	CheckboxCursorCheckedString:   ">X<",
+	CheckboxCursorUncheckedString: "> <",
+
+	InputFieldLabelColor:                              tcell.ColorYellow.TrueColor(),
+	InputFieldFieldBackgroundColor:                    tcell.ColorDarkGreen.TrueColor(),
+	InputFieldFieldBackgroundFocusedColor:             tcell.ColorGreen.TrueColor(),
+	InputFieldFieldTextColor:                          tcell.ColorWhite.TrueColor(),
+	InputFieldFieldTextFocusedColor:                   tcell.ColorWhite.TrueColor(),
+	InputFieldPlaceholderTextColor:                    tcell.ColorLightSlateGray.TrueColor(),
+	InputFieldAutocompleteListTextColor:               tcell.ColorBlack.TrueColor(),
+	InputFieldAutocompleteListBackgroundColor:         tcell.ColorDarkGreen.TrueColor(),
+	InputFieldAutocompleteListSelectedTextColor:       tcell.ColorBlack.TrueColor(),
+	InputFieldAutocompleteListSelectedBackgroundColor: tcell.ColorWhite.TrueColor(),
+	InputFieldAutocompleteSuggestionTextColor:         tcell.ColorLightSlateGray.TrueColor(),
+	InputFieldFieldNoteTextColor:                      tcell.ColorYellow.TrueColor(),
+	InputFieldLabelFocusedColor:                       ColorUnset,
+	InputFieldPlaceholderTextFocusedColor:             ColorUnset,
+
+	ListMainTextColor:           tcell.ColorWhite.TrueColor(),
+	ListSecondaryTextColor:      tcell.ColorLimeGreen.TrueColor(),
+	ListShortcutColor:           tcell.ColorYellow.TrueColor(),
+	ListSelectedTextColor:       tcell.ColorBlack.TrueColor(),
+	ListScrollBarColor:          tcell.ColorWhite.TrueColor(),
+	ListSelectedBackgroundColor: tcell.ColorWhite.TrueColor(),
 
 	ContextMenuPaddingTop:    0,
 	ContextMenuPaddingBottom: 0,

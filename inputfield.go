@@ -45,25 +45,25 @@ type InputField struct {
 	labelColor tcell.Color
 
 	// The label color when focused.
-	labelColorFocused tcell.Color
+	labelFocusedColor tcell.Color
 
 	// The background color of the input area.
 	fieldBackgroundColor tcell.Color
 
 	// The background color of the input area when focused.
-	fieldBackgroundColorFocused tcell.Color
+	fieldBackgroundFocusedColor tcell.Color
 
 	// The text color of the input area.
 	fieldTextColor tcell.Color
 
 	// The text color of the input area when focused.
-	fieldTextColorFocused tcell.Color
+	fieldTextFocusedColor tcell.Color
 
 	// The text color of the placeholder.
 	placeholderTextColor tcell.Color
 
 	// The text color of the placeholder when focused.
-	placeholderTextColorFocused tcell.Color
+	placeholderTextFocusedColor tcell.Color
 
 	// The text color of the list items.
 	autocompleteListTextColor tcell.Color
@@ -143,20 +143,20 @@ type InputField struct {
 func NewInputField() *InputField {
 	return &InputField{
 		Box:                                     NewBox(),
-		labelColor:                              Styles.SecondaryTextColor,
-		fieldBackgroundColor:                    Styles.MoreContrastBackgroundColor,
-		fieldBackgroundColorFocused:             Styles.ContrastBackgroundColor,
-		fieldTextColor:                          Styles.PrimaryTextColor,
-		fieldTextColorFocused:                   Styles.PrimaryTextColor,
-		placeholderTextColor:                    Styles.ContrastSecondaryTextColor,
-		autocompleteListTextColor:               Styles.PrimitiveBackgroundColor,
-		autocompleteListBackgroundColor:         Styles.MoreContrastBackgroundColor,
-		autocompleteListSelectedTextColor:       Styles.PrimitiveBackgroundColor,
-		autocompleteListSelectedBackgroundColor: Styles.PrimaryTextColor,
-		autocompleteSuggestionTextColor:         Styles.ContrastSecondaryTextColor,
-		fieldNoteTextColor:                      Styles.SecondaryTextColor,
-		labelColorFocused:                       ColorUnset,
-		placeholderTextColorFocused:             ColorUnset,
+		labelColor:                              Styles.InputFieldLabelColor,
+		fieldBackgroundColor:                    Styles.InputFieldFieldBackgroundColor,
+		fieldBackgroundFocusedColor:             Styles.InputFieldFieldBackgroundFocusedColor,
+		fieldTextColor:                          Styles.InputFieldFieldTextColor,
+		fieldTextFocusedColor:                   Styles.InputFieldFieldTextFocusedColor,
+		placeholderTextColor:                    Styles.InputFieldPlaceholderTextColor,
+		autocompleteListTextColor:               Styles.InputFieldAutocompleteListTextColor,
+		autocompleteListBackgroundColor:         Styles.InputFieldAutocompleteListBackgroundColor,
+		autocompleteListSelectedTextColor:       Styles.InputFieldAutocompleteListSelectedTextColor,
+		autocompleteListSelectedBackgroundColor: Styles.InputFieldAutocompleteListSelectedBackgroundColor,
+		autocompleteSuggestionTextColor:         Styles.InputFieldAutocompleteSuggestionTextColor,
+		fieldNoteTextColor:                      Styles.InputFieldFieldNoteTextColor,
+		labelFocusedColor:                       Styles.InputFieldLabelFocusedColor,
+		placeholderTextFocusedColor:             Styles.InputFieldPlaceholderTextFocusedColor,
 	}
 }
 
@@ -223,12 +223,12 @@ func (i *InputField) SetLabelColor(color tcell.Color) {
 	i.labelColor = color
 }
 
-// SetLabelColorFocused sets the color of the label when focused.
-func (i *InputField) SetLabelColorFocused(color tcell.Color) {
+// SetLabelFocusedColor sets the color of the label when focused.
+func (i *InputField) SetLabelFocusedColor(color tcell.Color) {
 	i.Lock()
 	defer i.Unlock()
 
-	i.labelColorFocused = color
+	i.labelFocusedColor = color
 }
 
 // SetFieldBackgroundColor sets the background color of the input area.
@@ -239,13 +239,13 @@ func (i *InputField) SetFieldBackgroundColor(color tcell.Color) {
 	i.fieldBackgroundColor = color
 }
 
-// SetFieldBackgroundColorFocused sets the background color of the input area
+// SetFieldBackgroundFocusedColor sets the background color of the input area
 // when focused.
-func (i *InputField) SetFieldBackgroundColorFocused(color tcell.Color) {
+func (i *InputField) SetFieldBackgroundFocusedColor(color tcell.Color) {
 	i.Lock()
 	defer i.Unlock()
 
-	i.fieldBackgroundColorFocused = color
+	i.fieldBackgroundFocusedColor = color
 }
 
 // SetFieldTextColor sets the text color of the input area.
@@ -256,12 +256,12 @@ func (i *InputField) SetFieldTextColor(color tcell.Color) {
 	i.fieldTextColor = color
 }
 
-// SetFieldTextColorFocused sets the text color of the input area when focused.
-func (i *InputField) SetFieldTextColorFocused(color tcell.Color) {
+// SetFieldTextFocusedColor sets the text color of the input area when focused.
+func (i *InputField) SetFieldTextFocusedColor(color tcell.Color) {
 	i.Lock()
 	defer i.Unlock()
 
-	i.fieldTextColorFocused = color
+	i.fieldTextFocusedColor = color
 }
 
 // SetPlaceholderTextColor sets the text color of placeholder text.
@@ -272,13 +272,13 @@ func (i *InputField) SetPlaceholderTextColor(color tcell.Color) {
 	i.placeholderTextColor = color
 }
 
-// SetPlaceholderTextColorFocused sets the text color of placeholder text when
+// SetPlaceholderTextFocusedColor sets the text color of placeholder text when
 // focused.
-func (i *InputField) SetPlaceholderTextColorFocused(color tcell.Color) {
+func (i *InputField) SetPlaceholderTextFocusedColor(color tcell.Color) {
 	i.Lock()
 	defer i.Unlock()
 
-	i.placeholderTextColorFocused = color
+	i.placeholderTextFocusedColor = color
 }
 
 // SetAutocompleteListTextColor sets the text color of the ListItems.
@@ -551,14 +551,14 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	fieldBackgroundColor := i.fieldBackgroundColor
 	fieldTextColor := i.fieldTextColor
 	if i.GetFocusable().HasFocus() {
-		if i.labelColorFocused != ColorUnset {
-			labelColor = i.labelColorFocused
+		if i.labelFocusedColor != ColorUnset {
+			labelColor = i.labelFocusedColor
 		}
-		if i.fieldBackgroundColorFocused != ColorUnset {
-			fieldBackgroundColor = i.fieldBackgroundColorFocused
+		if i.fieldBackgroundFocusedColor != ColorUnset {
+			fieldBackgroundColor = i.fieldBackgroundFocusedColor
 		}
-		if i.fieldTextColorFocused != ColorUnset {
-			fieldTextColor = i.fieldTextColorFocused
+		if i.fieldTextFocusedColor != ColorUnset {
+			fieldTextColor = i.fieldTextFocusedColor
 		}
 	}
 
@@ -602,8 +602,8 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	if len(text) == 0 && len(i.placeholder) > 0 {
 		// Draw placeholder text.
 		placeholderTextColor := i.placeholderTextColor
-		if i.GetFocusable().HasFocus() && i.placeholderTextColorFocused != ColorUnset {
-			placeholderTextColor = i.placeholderTextColorFocused
+		if i.GetFocusable().HasFocus() && i.placeholderTextFocusedColor != ColorUnset {
+			placeholderTextColor = i.placeholderTextFocusedColor
 		}
 		Print(screen, EscapeBytes(i.placeholder), x, y, fieldWidth, AlignLeft, placeholderTextColor)
 		i.offset = 0

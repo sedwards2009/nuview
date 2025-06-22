@@ -20,11 +20,11 @@ type FormItemAttributes struct {
 
 	BackgroundColor             tcell.Color
 	LabelColor                  tcell.Color
-	LabelColorFocused           tcell.Color
+	LabelFocusedColor           tcell.Color
 	FieldBackgroundColor        tcell.Color
-	FieldBackgroundColorFocused tcell.Color
+	FieldBackgroundFocusedColor tcell.Color
 	FieldTextColor              tcell.Color
-	FieldTextColorFocused       tcell.Color
+	FieldTextFocusedColor       tcell.Color
 
 	FinishedFunc func(key tcell.Key)
 }
@@ -45,7 +45,7 @@ type FormItem interface {
 	SetLabelColor(tcell.Color)
 
 	// SetLabelColor sets the color of the label when focused.
-	SetLabelColorFocused(tcell.Color)
+	SetLabelFocusedColor(tcell.Color)
 
 	// GetFieldWidth returns the width of the form item's field (the area which
 	// is manipulated by the user) in number of screen cells. A value of 0
@@ -59,14 +59,14 @@ type FormItem interface {
 	// SetFieldTextColor sets the text color of the input area.
 	SetFieldTextColor(tcell.Color)
 
-	// SetFieldTextColorFocused sets the text color of the input area when focused.
-	SetFieldTextColorFocused(tcell.Color)
+	// SetFieldTextFocusedColor sets the text color of the input area when focused.
+	SetFieldTextFocusedColor(tcell.Color)
 
 	// SetFieldBackgroundColor sets the background color of the input area.
 	SetFieldBackgroundColor(tcell.Color)
 
 	// SetFieldBackgroundColor sets the background color of the input area when focused.
-	SetFieldBackgroundColorFocused(tcell.Color)
+	SetFieldBackgroundFocusedColor(tcell.Color)
 
 	// SetBackgroundColor sets the background color of the form item.
 	SetBackgroundColor(tcell.Color)
@@ -211,8 +211,8 @@ func (f *Form) SetFieldBackgroundColor(color tcell.Color) {
 	f.fieldBackgroundColor = color
 }
 
-// SetFieldBackgroundColorFocused sets the background color of the input areas when focused.
-func (f *Form) SetFieldBackgroundColorFocused(color tcell.Color) {
+// SetFieldBackgroundFocusedColor sets the background color of the input areas when focused.
+func (f *Form) SetFieldBackgroundFocusedColor(color tcell.Color) {
 	f.Lock()
 	defer f.Unlock()
 
@@ -622,19 +622,19 @@ func (f *Form) getAttributes() *FormItemAttributes {
 		FieldTextColor:       f.fieldTextColor,
 	}
 	if f.labelColorFocused == ColorUnset {
-		attrs.LabelColorFocused = f.labelColor
+		attrs.LabelFocusedColor = f.labelColor
 	} else {
-		attrs.LabelColorFocused = f.labelColorFocused
+		attrs.LabelFocusedColor = f.labelColorFocused
 	}
 	if f.fieldBackgroundColorFocused == ColorUnset {
-		attrs.FieldBackgroundColorFocused = f.fieldTextColor
+		attrs.FieldBackgroundFocusedColor = f.fieldTextColor
 	} else {
-		attrs.FieldBackgroundColorFocused = f.fieldBackgroundColorFocused
+		attrs.FieldBackgroundFocusedColor = f.fieldBackgroundColorFocused
 	}
 	if f.fieldTextColorFocused == ColorUnset {
-		attrs.FieldTextColorFocused = f.fieldBackgroundColor
+		attrs.FieldTextFocusedColor = f.fieldBackgroundColor
 	} else {
-		attrs.FieldTextColorFocused = f.fieldTextColorFocused
+		attrs.FieldTextFocusedColor = f.fieldTextColorFocused
 	}
 	return attrs
 }
@@ -1026,11 +1026,11 @@ func setFormItemAttributes(item FormItem, attrs *FormItemAttributes) {
 	item.SetLabelWidth(attrs.LabelWidth)
 	item.SetBackgroundColor(attrs.BackgroundColor)
 	item.SetLabelColor(attrs.LabelColor)
-	item.SetLabelColorFocused(attrs.LabelColorFocused)
+	item.SetLabelFocusedColor(attrs.LabelFocusedColor)
 	item.SetFieldTextColor(attrs.FieldTextColor)
-	item.SetFieldTextColorFocused(attrs.FieldTextColorFocused)
+	item.SetFieldTextFocusedColor(attrs.FieldTextFocusedColor)
 	item.SetFieldBackgroundColor(attrs.FieldBackgroundColor)
-	item.SetFieldBackgroundColorFocused(attrs.FieldBackgroundColorFocused)
+	item.SetFieldBackgroundFocusedColor(attrs.FieldBackgroundFocusedColor)
 
 	if attrs.FinishedFunc != nil {
 		item.SetFinishedFunc(attrs.FinishedFunc)
