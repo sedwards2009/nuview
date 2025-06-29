@@ -23,11 +23,13 @@ type Theme struct {
 	MoreContrastBackgroundColor tcell.Color // Background color for even more contrasting elements.
 
 	// Button
-	ButtonCursorRune             rune // The symbol to draw at the end of button labels when focused.
-	ButtonLabelColor             tcell.Color
-	ButtonLabelFocusedColor      tcell.Color
-	ButtonBackgroundColor        tcell.Color
-	ButtonBackgroundFocusedColor tcell.Color
+	ButtonCursorRune              rune // The symbol to draw at the end of button labels when focused.
+	ButtonLabelColor              tcell.Color
+	ButtonLabelFocusedColor       tcell.Color
+	ButtonBackgroundColor         tcell.Color
+	ButtonBackgroundFocusedColor  tcell.Color
+	ButtonBackgroundDisabledColor tcell.Color
+	ButtonLabelDisabledColor      tcell.Color
 
 	// Check box
 	CheckboxLabelStyle            tcell.Style
@@ -101,11 +103,13 @@ var Styles = Theme{
 	ContrastBackgroundColor:     tcell.ColorGreen.TrueColor(),
 	MoreContrastBackgroundColor: tcell.ColorDarkGreen.TrueColor(),
 
-	ButtonCursorRune:             '◀',
-	ButtonLabelColor:             tcell.ColorWhite.TrueColor(),
-	ButtonLabelFocusedColor:      tcell.ColorWhite.TrueColor(),
-	ButtonBackgroundColor:        tcell.ColorDarkGreen.TrueColor(),
-	ButtonBackgroundFocusedColor: tcell.ColorGreen.TrueColor(),
+	ButtonCursorRune:              '◀',
+	ButtonLabelColor:              tcell.ColorWhite.TrueColor(),
+	ButtonLabelFocusedColor:       tcell.ColorWhite.TrueColor(),
+	ButtonBackgroundColor:         tcell.ColorDarkGreen.TrueColor(),
+	ButtonBackgroundFocusedColor:  tcell.ColorGreen.TrueColor(),
+	ButtonBackgroundDisabledColor: tcell.ColorDarkGray.TrueColor(),
+	ButtonLabelDisabledColor:      tcell.ColorBlack.TrueColor(),
 
 	CheckboxLabelStyle:            tcell.StyleDefault.Foreground(tcell.ColorYellow.TrueColor()),
 	CheckboxUncheckedStyle:        tcell.StyleDefault.Background(tcell.ColorGreen.TrueColor()).Foreground(tcell.ColorWhite.TrueColor()),

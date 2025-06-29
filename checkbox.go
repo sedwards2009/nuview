@@ -13,8 +13,8 @@ import (
 type Checkbox struct {
 	*Box
 
-	// Whether or not this checkbox is disabled/read-only.
-	disabled bool
+	// Whether or not this checkbox is enabled/read-only.
+	enabled bool
 
 	// Whether or not this box is checked.
 	checked bool
@@ -260,11 +260,11 @@ func (c *Checkbox) GetFieldHeight() int {
 	return 1
 }
 
-// SetDisabled sets whether or not the item is disabled / read-only.
-func (c *Checkbox) SetDisabled(disabled bool) {
+// SetEnabled sets whether or not the item is disabled / read-only.
+func (c *Checkbox) SetEnabled(enabled bool) {
 	c.Lock()
 	defer c.Unlock()
-	c.disabled = disabled
+	c.enabled = enabled
 	if c.finished != nil {
 		c.finished(-1)
 	}
@@ -304,7 +304,7 @@ func (c *Checkbox) Focus(delegate func(p Primitive)) {
 	defer c.Unlock()
 	// If we're part of a form and this item is disabled, there's nothing the
 	// user can do here so we're finished.
-	if c.finished != nil && c.disabled {
+	if c.finished != nil && !c.enabled {
 		c.finished(-1)
 		return
 	}
@@ -344,10 +344,10 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	// Draw checkbox.
 	str := c.uncheckedString
 	style := c.uncheckedStyle
-	if c.disabled {
+	if !c.enabled {
 		style = style.Background(c.backgroundColor)
 	}
-	if c.checked {
+	if !c.checked {
 		str = c.checkedString
 		style = c.checkedStyle
 	}
@@ -360,7 +360,7 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 		}
 	}
 
-	_, _, drawnWidth := printWithStyle(screen, str, x, y, 0, width, AlignLeft, style, c.disabled)
+	_, _, drawnWidth := printWithStyle(screen, str, x, y, 0, width, AlignLeft, style, !c.enabled)
 	x += drawnWidth
 	width -= drawnWidth
 
@@ -382,7 +382,7 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 // InputHandler returns the handler for this primitive.
 func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return c.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		if c.disabled {
+		if !c.enabled {
 			return
 		}
 
@@ -410,7 +410,7 @@ func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 // MouseHandler returns the mouse handler for this primitive.
 func (c *Checkbox) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return c.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
-		if c.disabled {
+		if !c.enabled {
 			return false, nil
 		}
 
