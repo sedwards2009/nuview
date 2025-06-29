@@ -65,12 +65,13 @@ type Checkbox struct {
 // NewCheckbox returns a new input field.
 func NewCheckbox() *Checkbox {
 	return &Checkbox{
-		Box:            NewBox(),
-		labelStyle:     Styles.CheckboxLabelStyle,
-		uncheckedStyle: Styles.CheckboxUncheckedStyle,
-		checkedStyle:   Styles.CheckboxCheckedStyle,
-		focusStyle:     Styles.CheckboxFocusStyle,
+		Box:     NewBox(),
+		enabled: true,
 
+		labelStyle:            Styles.CheckboxLabelStyle,
+		uncheckedStyle:        Styles.CheckboxUncheckedStyle,
+		checkedStyle:          Styles.CheckboxCheckedStyle,
+		focusStyle:            Styles.CheckboxFocusStyle,
 		uncheckedString:       Styles.CheckboxUncheckedString,
 		checkedString:         Styles.CheckboxCheckedString,
 		cursorCheckedString:   Styles.CheckboxCursorCheckedString,
