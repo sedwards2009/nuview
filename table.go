@@ -1,6 +1,7 @@
 package nuview
 
 import (
+	"log"
 	"sort"
 	"sync"
 	"time"
@@ -966,7 +967,8 @@ func (t *Table) Draw(screen tcell.Screen) {
 	}
 
 	// Setup selection and get table dimensions
-	rowCount, columnCount := t.content.GetRowCount(), t.content.GetColumnCount()
+	rowCount := t.content.GetRowCount()
+	columnCount := t.content.GetColumnCount()
 	t.ensureValidSelection(rowCount, columnCount)
 
 	// Calculate row and column offsets
@@ -977,6 +979,10 @@ func (t *Table) Draw(screen tcell.Screen) {
 
 	// Determine visible columns and their widths
 	columns, widths, _ := t.calculateVisibleColumns(netWidth, columnCount, rows, allRows)
+
+	for i, column := range columns {
+		log.Printf("Column: %d: %d width: %d", i, column, widths[i])
+	}
 
 	// Draw table cells and borders
 	t.drawTableCells(screen, x, y, width, height, totalHeight, rows, columns, widths, rowCount, columnCount)
@@ -1068,34 +1074,28 @@ func (t *Table) calculateOffsets(height, rowCount, columnCount int) {
 
 // calculateVisibleRows determines which rows should be visible on screen.
 func (t *Table) calculateVisibleRows(height int, rowCount int) (rows []int, allRows []int) {
-	var tableHeight int
+
 	rowStep := 1
 	if t.borders {
 		rowStep = 2 // With borders, every table row takes two screen rows.
 	}
+
 	if t.evaluateAllRows {
 		allRows = make([]int, rowCount)
 		for row := 0; row < rowCount; row++ {
 			allRows[row] = row
 		}
 	}
-	indexRow := func(row int) bool { // Determine if this row is visible, store its index.
-		if tableHeight >= height {
-			return false
-		}
+
+	tableHeight := 0
+	for row := 0; row < t.fixedRows && row < rowCount && tableHeight < height; row++ { // Do the fixed rows first.
 		rows = append(rows, row)
 		tableHeight += rowStep
-		return true
 	}
-	for row := 0; row < t.fixedRows && row < rowCount; row++ { // Do the fixed rows first.
-		if !indexRow(row) {
-			break
-		}
-	}
-	for row := t.fixedRows + t.rowOffset; row < rowCount; row++ { // Then the remaining rows.
-		if !indexRow(row) {
-			break
-		}
+
+	for row := t.fixedRows + t.rowOffset; row < rowCount && tableHeight < height; row++ { // Then the remaining rows.
+		rows = append(rows, row)
+		tableHeight += rowStep
 	}
 
 	return rows, allRows
@@ -1221,6 +1221,7 @@ func (t *Table) calculateVisibleColumns(viewportWidth int, columnCount int, rows
 					}
 				}
 			} else if tableWidth < viewportWidth {
+				log.Printf("Table: Not enough columns to fill the viewport (%d < %d).", tableWidth, viewportWidth)
 				// Don't waste space. Try to fit as much on screen as possible.
 				resetColumns()
 				if column := indexColumns(columnCount-1, t.fixedColumns); column >= 0 {
@@ -1250,7 +1251,9 @@ func (t *Table) calculateVisibleColumns(viewportWidth int, columnCount int, rows
 }
 
 // drawTableCells draws the table cells and borders.
-func (t *Table) drawTableCells(screen tcell.Screen, x, y, width, height, totalHeight int, rows, columns, widths []int, rowCount, columnCount int) {
+func (t *Table) drawTableCells(screen tcell.Screen, x int, y int, width int, height int, totalHeight int,
+	rows []int, columns []int, widths []int, rowCount int, columnCount int) {
+
 	// Helper function which draws border runes.
 	borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
 	drawBorder := func(colX, rowY int, ch rune) {
