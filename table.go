@@ -952,7 +952,7 @@ func (t *Table) SetWrapSelection(vertical, horizontal bool) {
 }
 
 // Draw draws this primitive onto the screen.
-func (t *Table) Draw(screen tcell.Screen) {
+func (t *Table) DrawOld(screen tcell.Screen) {
 	t.Box.Draw(screen)
 
 	// What's our available screen space?
@@ -993,6 +993,258 @@ func (t *Table) Draw(screen tcell.Screen) {
 	// Remember column infos.
 	t.visibleColumnIndices, t.visibleColumnWidths = columns, widths
 }
+
+func (t *Table) Draw(screen tcell.Screen) {
+	t.Box.Draw(screen)
+
+	// What's our available screen space?
+	// _, totalHeight := screen.Size()
+	x, y, width, height := t.GetInnerRect()
+	netWidth := width
+	if t.borders {
+		t.visibleRows = height / 2
+		netWidth -= 2
+	} else {
+		t.visibleRows = height
+	}
+
+	// Setup selection and get table dimensions
+	rowCount := t.content.GetRowCount()
+	columnCount := t.content.GetColumnCount()
+	t.ensureValidSelection(rowCount, columnCount)
+
+	// Determine visible rows
+	rows, _ := t.calculateVisibleRows(height, rowCount)
+	columnWidths := t.newCalculateColumnWidths()
+
+	normalStartX := 0
+	if t.fixedColumns > 0 {
+		normalStartX = t.drawCellColumnRange(screen, x, y, width, height, rows, 0, t.fixedColumns, columnWidths)
+	}
+	t.drawCellColumnRange(screen, normalStartX, y, width, height, rows, t.fixedColumns, columnCount-t.fixedColumns, columnWidths)
+
+	if t.fixedColumns > 0 {
+		t.drawCellBackgroundColumnRange(screen, x, y, width, height, rows, 0, t.fixedColumns, columnWidths)
+	}
+	t.drawCellBackgroundColumnRange(screen, normalStartX, y, width, height, rows, t.fixedColumns, columnCount-t.fixedColumns, columnWidths)
+}
+
+func (t *Table) drawCellColumnRange(screen tcell.Screen, x int, y int, width int, height int, rows []int,
+	startColumn int, columnCount int, columnWidths []int) int {
+	posX := x
+	if t.borders {
+		for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
+			columnWidth := columnWidths[columnIndex]
+			t.drawCellColumn(screen, posX+1, y, width, rows, columnIndex, columnWidth, 1)
+			t.drawColumnBorders(screen, posX, y, width, height, len(rows), columnIndex, columnWidth)
+			posX += columnWidth
+			posX++
+		}
+	} else {
+		for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
+			columnWidth := columnWidths[columnIndex]
+			t.drawCellColumn(screen, posX, y, width, rows, columnIndex, columnWidth, 0)
+			posX += columnWidth
+			posX++
+		}
+	}
+	return posX
+}
+
+func (t *Table) drawCellColumn(screen tcell.Screen, x int, y int, width int, rows []int, column int,
+	columnWidth int, verticalSpacing int) {
+
+	for rowIndex, row := range rows {
+		// Get the cell.
+		cell := t.content.GetCell(row, column)
+		if cell == nil {
+			continue
+		}
+
+		rowY := y + verticalSpacing + ((1 + verticalSpacing) * rowIndex)
+
+		// Draw text.
+		finalWidth := min(columnWidth, width)
+
+		cell.x = x
+		cell.y = rowY
+		cell.width = finalWidth
+
+		style := cell.Style
+		if style == tcell.StyleDefault {
+			style = tcell.StyleDefault.Background(cell.BackgroundColor).Foreground(cell.Color).Attributes(cell.Attributes)
+		}
+		start, end := PrintStyle(screen, []byte(cell.Text), x, rowY, finalWidth, cell.Align, style)
+		printed := end - start
+		if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
+			_, _, style, _ := screen.GetContent(x+finalWidth-1, rowY)
+			PrintStyle(screen, []byte(string(SemigraphicsHorizontalEllipsis)), x+finalWidth-1, rowY, 1, AlignLeft, style)
+		}
+	}
+}
+
+func (t *Table) drawColumnBorders(screen tcell.Screen, x int, y int, width int, height int, rowCount int,
+	columnIndex int, columnWidth int) {
+
+	borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
+
+	leftJointRune := Borders.Cross
+	if columnIndex == 0 {
+		leftJointRune = Borders.LeftT
+	}
+
+	for rowIndex := range rowCount {
+		rowY := y + 2*rowIndex
+
+		screen.SetContent(x, rowY, leftJointRune, nil, borderStyle)
+		for i := range columnWidth {
+			screen.SetContent(x+i+1, rowY, Borders.Horizontal, nil, borderStyle)
+		}
+		if rowY+1 < height {
+			screen.SetContent(x, rowY+1, Borders.Vertical, nil, borderStyle)
+		}
+	}
+	// drawBorder := func(colX, rowY int, ch rune) {
+	// 	screen.SetContent(x+colX, y+rowY, ch, nil, borderStyle)
+	// }
+
+	// // Draw the borders.
+	// columnX := x
+	// if t.borders {
+	// 	columnX++
+	// }
+	// for rowIndex := range rows {
+	// 	rowY := y + verticalSpacing + ((1 + verticalSpacing) * rowIndex)
+	// 	if rowY+verticalSpacing < height {
+	// 		drawBorder(columnX, rowY+verticalSpacing, Borders.Vertical)
+	// 	}
+	// 	ch := Borders.Cross
+	// 	if rowIndex == 0 {
+	// 		ch = Borders.TopLeft
+	// 	} else if rowIndex == len(rows)-1 {
+	// 		ch = Borders.BottomLeft
+	// 	}
+	// 	drawBorder(columnX, rowY, ch)
+	// }
+	// if columnX < width && len(rows) > 0 {
+	// 	drawBorder(columnX-1, y+verticalSpacing+((1+verticalSpacing)*len(rows)-1), Borders.BottomRight)
+	// }
+}
+
+func (t *Table) drawCellBackgroundColumnRange(screen tcell.Screen, x int, y int, width int, height int, rows []int,
+	startColumn int, columnCount int, columnWidths []int) {
+
+	verticalSpacing := 0
+	if t.borders {
+		verticalSpacing = 1
+
+	}
+
+	if t.rowsSelectable {
+		for _, rowIndex := range rows {
+			rowSelected := rowIndex == t.selectedRow
+			if rowSelected {
+				rowY := y + verticalSpacing + ((1 + verticalSpacing) * rowIndex)
+				columnStartX := x
+				for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
+					columnWidth := columnWidths[columnIndex]
+
+					cell := t.content.GetCell(rowIndex, columnIndex)
+					var selectStyle tcell.Style
+					if cell.SelectedStyle != tcell.StyleDefault {
+						selectStyle = cell.SelectedStyle
+					} else if t.selectedStyle != tcell.StyleDefault {
+						selectStyle = t.selectedStyle
+					} else {
+						textColor := cell.Color
+						backgroundColor := cell.BackgroundColor
+						if cell.Style != tcell.StyleDefault {
+							textColor, backgroundColor, _ = cell.Style.Decompose()
+						}
+						// _, _, style, _ := screen.GetContent(columnStartX+1, rowY)
+						// fg, bg, _ := style.Decompose()
+						selectStyle = tcell.StyleDefault.Background(textColor).Foreground(backgroundColor)
+					}
+
+					if t.borders {
+						t.drawRectangleColor(screen, columnStartX, rowY-1, columnWidth+2, 3, selectStyle)
+					} else {
+						t.drawRectangleColor(screen, columnStartX, rowY, columnWidth, 1, selectStyle)
+					}
+
+					columnStartX += columnWidth + 1
+				}
+
+			}
+		}
+	}
+
+}
+
+func (t *Table) drawRectangleColor(screen tcell.Screen, x int, y int, width int, height int, style tcell.Style) {
+	for row := 0; row < height; row++ {
+		for col := 0; col < width; col++ {
+			primaryRune, comboRune, _, _ := screen.GetContent(x+col, y+row)
+			screen.SetContent(x+col, y+row, primaryRune, comboRune, style)
+		}
+	}
+}
+
+// drawTableCells draws the table cells and borders.
+// func (t *Table) drawCellColumn(screen tcell.Screen, x int, y int, width int, height int, totalHeight int,
+// 	rows []int, column int, columWidth int) {
+
+// 	// Helper function which draws border runes.
+// 	borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
+// 	drawBorder := func(colX, rowY int, ch rune) {
+// 		screen.SetContent(x+colX, y+rowY, ch, nil, borderStyle)
+// 	}
+
+// 	// Draw the cells (and borders).
+// 	var columnX int
+// 	if t.borders {
+// 		columnX++
+// 	}
+// 	for columnIndex, column := range columns {
+// 		columnWidth := widths[columnIndex]
+// 		columnX = t.drawColumn(screen, x, y, width, height, totalHeight, rows, columnIndex, column, columnWidth, columnX, rowCount, columns, drawBorder)
+// 	}
+
+// 	// Draw right border.
+// 	columnX--
+// 	if t.borders && len(rows) > 0 && len(columns) > 0 && columnX < width {
+// 		borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
+// 		drawBorder := func(colX, rowY int, ch rune) {
+// 			screen.SetContent(x+colX, y+rowY, ch, nil, borderStyle)
+// 		}
+
+// 		lastColumn := columns[len(columns)-1] == columnCount-1
+// 		for rowY := range rows {
+// 			rowY *= 2
+// 			if rowY+1 < height {
+// 				drawBorder(columnX, rowY+1, Borders.Vertical)
+// 			}
+// 			ch := Borders.Cross
+// 			if rowY == 0 {
+// 				if lastColumn {
+// 					ch = Borders.TopRight
+// 				} else {
+// 					ch = Borders.TopT
+// 				}
+// 			} else if lastColumn {
+// 				ch = Borders.RightT
+// 			}
+// 			drawBorder(columnX, rowY, ch)
+// 		}
+// 		if rowY := 2 * len(rows); rowY < height {
+// 			ch := Borders.BottomT
+// 			if lastColumn {
+// 				ch = Borders.BottomRight
+// 			}
+// 			drawBorder(columnX, rowY, ch)
+// 		}
+// 	}
+// }
 
 // ensureValidSelection ensures that the current selection is valid and selectable.
 func (t *Table) ensureValidSelection(rowCount, columnCount int) {
@@ -1250,6 +1502,109 @@ func (t *Table) calculateVisibleColumns(viewportWidth int, columnCount int, rows
 	return columns, widths, expansions
 }
 
+// calculateVisibleColumns determines which columns should be visible and their widths.
+func (t *Table) newCalculateColumnWidths() []int {
+	rowCount := t.content.GetRowCount()
+	columnCount := t.content.GetColumnCount()
+
+	columnWidths := make([]int, columnCount)
+	for i := range columnCount {
+		maxWidth := 0
+		for j := range rowCount {
+			if cell := t.content.GetCell(j, i); cell != nil {
+				cellWidth := TaggedStringWidth(cell.Text)
+				if cell.MaxWidth > 0 {
+					cellWidth = min(cellWidth, cell.MaxWidth)
+				}
+				maxWidth = max(maxWidth, cellWidth)
+				// expansion = max(expansion, cell.Expansion)
+			}
+		}
+		columnWidths[i] = maxWidth
+	}
+	return columnWidths
+}
+
+// drawColumn draws a single column of the table including its borders and cell content.
+func (t *Table) drawColumn(screen tcell.Screen, x int, y int, width int, height int, totalHeight int,
+	rows []int, columnIndex int, column int, columnWidth int, columnX int,
+	rowCount int, columns []int, drawBorder func(colX, rowY int, ch rune)) int {
+
+	for rowY, row := range rows {
+		if t.borders {
+			// Draw borders.
+			rowY *= 2
+			for pos := 0; pos < columnWidth && columnX+pos < width; pos++ {
+				drawBorder(columnX+pos, rowY, Borders.Horizontal)
+			}
+			ch := Borders.Cross
+			if row == 0 {
+				if column == 0 {
+					ch = Borders.TopLeft
+				} else {
+					ch = Borders.TopT
+				}
+			} else if column == 0 {
+				ch = Borders.LeftT
+			}
+			drawBorder(columnX-1, rowY, ch)
+			rowY++
+			if rowY >= height || y+rowY >= totalHeight {
+				break // No space for the text anymore.
+			}
+			drawBorder(columnX-1, rowY, Borders.Vertical)
+		} else if columnIndex < len(columns)-1 {
+			// Draw separator.
+			drawBorder(columnX+columnWidth, rowY, t.separator)
+		}
+
+		// Get the cell.
+		cell := t.content.GetCell(row, column)
+		if cell == nil {
+			continue
+		}
+
+		// Draw text.
+		finalWidth := columnWidth
+		if columnX+columnWidth >= width {
+			finalWidth = width - columnX
+		}
+		cell.x = x + columnX
+		cell.y = y + rowY
+		cell.width = finalWidth
+		style := cell.Style
+		if style == tcell.StyleDefault {
+			style = tcell.StyleDefault.Background(cell.BackgroundColor).Foreground(cell.Color).Attributes(cell.Attributes)
+		}
+		start, end := PrintStyle(screen, []byte(cell.Text), x+columnX, y+rowY, finalWidth, cell.Align, style)
+		printed := end - start
+		if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
+			_, _, style, _ := screen.GetContent(x+columnX+finalWidth-1, y+rowY)
+			PrintStyle(screen, []byte(string(SemigraphicsHorizontalEllipsis)), x+columnX+finalWidth-1, y+rowY, 1, AlignLeft, style)
+		}
+	}
+
+	// Draw bottom border.
+	if rowY := 2 * len(rows); t.borders && rowY > 0 && rowY < height {
+		for pos := 0; pos < columnWidth && columnX+1+pos < width; pos++ {
+			drawBorder(columnX+pos, rowY, Borders.Horizontal)
+		}
+		ch := Borders.Cross
+		if rows[len(rows)-1] == rowCount-1 {
+			if column == 0 {
+				ch = Borders.BottomLeft
+			} else {
+				ch = Borders.BottomT
+			}
+		} else if column == 0 {
+			ch = Borders.BottomLeft
+		}
+		drawBorder(columnX-1, rowY, ch)
+	}
+
+	return columnX + columnWidth + 1
+}
+
 // drawTableCells draws the table cells and borders.
 func (t *Table) drawTableCells(screen tcell.Screen, x int, y int, width int, height int, totalHeight int,
 	rows []int, columns []int, widths []int, rowCount int, columnCount int) {
@@ -1267,77 +1622,7 @@ func (t *Table) drawTableCells(screen tcell.Screen, x int, y int, width int, hei
 	}
 	for columnIndex, column := range columns {
 		columnWidth := widths[columnIndex]
-		for rowY, row := range rows {
-			if t.borders {
-				// Draw borders.
-				rowY *= 2
-				for pos := 0; pos < columnWidth && columnX+pos < width; pos++ {
-					drawBorder(columnX+pos, rowY, Borders.Horizontal)
-				}
-				ch := Borders.Cross
-				if row == 0 {
-					if column == 0 {
-						ch = Borders.TopLeft
-					} else {
-						ch = Borders.TopT
-					}
-				} else if column == 0 {
-					ch = Borders.LeftT
-				}
-				drawBorder(columnX-1, rowY, ch)
-				rowY++
-				if rowY >= height || y+rowY >= totalHeight {
-					break // No space for the text anymore.
-				}
-				drawBorder(columnX-1, rowY, Borders.Vertical)
-			} else if columnIndex < len(columns)-1 {
-				// Draw separator.
-				drawBorder(columnX+columnWidth, rowY, t.separator)
-			}
-
-			// Get the cell.
-			cell := t.content.GetCell(row, column)
-			if cell == nil {
-				continue
-			}
-
-			// Draw text.
-			finalWidth := columnWidth
-			if columnX+columnWidth >= width {
-				finalWidth = width - columnX
-			}
-			cell.x, cell.y, cell.width = x+columnX, y+rowY, finalWidth
-			style := cell.Style
-			if style == tcell.StyleDefault {
-				style = tcell.StyleDefault.Background(cell.BackgroundColor).Foreground(cell.Color).Attributes(cell.Attributes)
-			}
-			start, end := PrintStyle(screen, []byte(cell.Text), x+columnX, y+rowY, finalWidth, cell.Align, style)
-			printed := end - start
-			if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
-				_, _, style, _ := screen.GetContent(x+columnX+finalWidth-1, y+rowY)
-				PrintStyle(screen, []byte(string(SemigraphicsHorizontalEllipsis)), x+columnX+finalWidth-1, y+rowY, 1, AlignLeft, style)
-			}
-		}
-
-		// Draw bottom border.
-		if rowY := 2 * len(rows); t.borders && rowY > 0 && rowY < height {
-			for pos := 0; pos < columnWidth && columnX+1+pos < width; pos++ {
-				drawBorder(columnX+pos, rowY, Borders.Horizontal)
-			}
-			ch := Borders.Cross
-			if rows[len(rows)-1] == rowCount-1 {
-				if column == 0 {
-					ch = Borders.BottomLeft
-				} else {
-					ch = Borders.BottomT
-				}
-			} else if column == 0 {
-				ch = Borders.BottomLeft
-			}
-			drawBorder(columnX-1, rowY, ch)
-		}
-
-		columnX += columnWidth + 1
+		columnX = t.drawColumn(screen, x, y, width, height, totalHeight, rows, columnIndex, column, columnWidth, columnX, rowCount, columns, drawBorder)
 	}
 
 	// Draw right border.
