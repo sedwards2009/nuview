@@ -1184,62 +1184,6 @@ func (t *Table) drawRectangleColor(screen tcell.Screen, x int, y int, width int,
 	}
 }
 
-// drawTableCells draws the table cells and borders.
-// func (t *Table) drawCellColumn(screen tcell.Screen, x int, y int, width int, height int, totalHeight int,
-// 	rows []int, columnIndex int, column int, columnWidth int, columnX int, rowCount int, columns []int, drawBorder func(colX, rowY int, ch rune)) {
-
-// 	// Helper function which draws border runes.
-// 	borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
-// 	drawBorder := func(colX, rowY int, ch rune) {
-// 		screen.SetContent(x+colX, y+rowY, ch, nil, borderStyle)
-// 	}
-
-// 	// Draw the cells (and borders).
-// 	var columnX int
-// 	if t.borders {
-// 		columnX++
-// 	}
-// 	for columnIndex, column := range columns {
-// 		columnWidth := widths[columnIndex]
-// 		columnX = t.drawColumn(screen, x, y, width, height, totalHeight, rows, columnIndex, column, columnWidth, columnX, rowCount, columns, drawBorder)
-// 	}
-
-// 	// Draw right border.
-// 	columnX--
-// 	if t.borders && len(rows) > 0 && len(columns) > 0 && columnX < width {
-// 		borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
-// 		drawBorder := func(colX, rowY int, ch rune) {
-// 			screen.SetContent(x+colX, y+rowY, ch, nil, borderStyle)
-// 		}
-
-// 		lastColumn := columns[len(columns)-1] == columnCount-1
-// 		for rowY := range rows {
-// 			rowY *= 2
-// 			if rowY+1 < height {
-// 				drawBorder(columnX, rowY+1, Borders.Vertical)
-// 			}
-// 			ch := Borders.Cross
-// 			if rowY == 0 {
-// 				if lastColumn {
-// 					ch = Borders.TopRight
-// 				} else {
-// 					ch = Borders.TopT
-// 				}
-// 			} else if lastColumn {
-// 				ch = Borders.RightT
-// 			}
-// 			drawBorder(columnX, rowY, ch)
-// 		}
-// 		if rowY := 2 * len(rows); rowY < height {
-// 			ch := Borders.BottomT
-// 			if lastColumn {
-// 				ch = Borders.BottomRight
-// 			}
-// 			drawBorder(columnX, rowY, ch)
-// 		}
-// 	}
-// }
-
 // ensureValidSelection ensures that the current selection is valid and selectable.
 func (t *Table) ensureValidSelection(rowCount, columnCount int) {
 	if t.rowsSelectable || t.columnsSelectable {
