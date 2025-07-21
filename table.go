@@ -1018,15 +1018,18 @@ func (t *Table) Draw(screen tcell.Screen) {
 	columnWidths := t.newCalculateColumnWidths()
 
 	normalStartX := 0
+
+	firstVisibleColumn := t.fixedColumns + t.columnOffset
+	visibleColumnCount := columnCount - firstVisibleColumn
 	if t.fixedColumns > 0 {
 		normalStartX = t.drawCellColumnRange(screen, x, y, width, height, rows, 0, t.fixedColumns, columnWidths)
 	}
-	t.drawCellColumnRange(screen, normalStartX, y, width, height, rows, t.fixedColumns, columnCount-t.fixedColumns, columnWidths)
+	t.drawCellColumnRange(screen, normalStartX, y, width, height, rows, firstVisibleColumn, visibleColumnCount, columnWidths)
 
 	if t.fixedColumns > 0 {
 		t.drawCellBackgroundColumnRange(screen, x, y, width, height, rows, 0, t.fixedColumns, columnWidths)
 	}
-	t.drawCellBackgroundColumnRange(screen, normalStartX, y, width, height, rows, t.fixedColumns, columnCount-t.fixedColumns, columnWidths)
+	t.drawCellBackgroundColumnRange(screen, normalStartX, y, width, height, rows, firstVisibleColumn, visibleColumnCount, columnWidths)
 }
 
 func (t *Table) drawCellColumnRange(screen tcell.Screen, x int, y int, width int, height int, rows []int,
