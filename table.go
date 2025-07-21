@@ -1450,12 +1450,7 @@ func (t *Table) newCalculateColumnWidths() []int {
 		maxWidth := 0
 		for j := range rowCount {
 			if cell := t.content.GetCell(j, i); cell != nil {
-				cellWidth := TaggedStringWidth(cell.Text)
-				if cell.MaxWidth > 0 {
-					cellWidth = min(cellWidth, cell.MaxWidth)
-				}
-				maxWidth = max(maxWidth, cellWidth)
-				// expansion = max(expansion, cell.Expansion)
+				maxWidth = max(maxWidth, cell.width)
 			}
 		}
 		columnWidths[i] = maxWidth
