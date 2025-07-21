@@ -68,7 +68,11 @@ type TableCell struct {
 	Clicked func() bool
 
 	// The position and width of the cell the last time table was drawn.
-	x, y, width int
+	x int
+	y int
+
+	// The effective width of the cell. This takes into account the text size and MaxWidth
+	width int
 
 	sync.RWMutex
 }
@@ -77,11 +81,24 @@ type TableCell struct {
 // aligned text with the primary text color (see Styles) and a transparent
 // background (using the background of the Table).
 func NewTableCell(text string) *TableCell {
-	return &TableCell{
+	cell := &TableCell{
 		Text:        text,
 		Align:       AlignLeft,
 		Style:       tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.PrimitiveBackgroundColor),
 		Transparent: true,
+	}
+	cell.updateWidth()
+	return cell
+}
+
+// updateWidth calculates and sets the effective width of the cell based on
+// the text content and maximum width constraint.
+func (c *TableCell) updateWidth() {
+	textWidth := TaggedStringWidth(c.Text)
+	if c.MaxWidth > 0 && textWidth > c.MaxWidth {
+		c.width = c.MaxWidth
+	} else {
+		c.width = textWidth
 	}
 }
 
@@ -90,6 +107,7 @@ func (c *TableCell) SetText(text string) {
 	c.Lock()
 	defer c.Unlock()
 	c.Text = text
+	c.updateWidth()
 }
 
 // SetAlign sets the cell's text alignment, one of AlignLeft, AlignCenter, or
@@ -107,6 +125,7 @@ func (c *TableCell) SetMaxWidth(maxWidth int) {
 	c.Lock()
 	defer c.Unlock()
 	c.MaxWidth = maxWidth
+	c.updateWidth()
 }
 
 // SetExpansion sets the value by which the column of this cell expands if the
@@ -1167,7 +1186,7 @@ func (t *Table) drawRectangleColor(screen tcell.Screen, x int, y int, width int,
 
 // drawTableCells draws the table cells and borders.
 // func (t *Table) drawCellColumn(screen tcell.Screen, x int, y int, width int, height int, totalHeight int,
-// 	rows []int, column int, columWidth int) {
+// 	rows []int, columnIndex int, column int, columnWidth int, columnX int, rowCount int, columns []int, drawBorder func(colX, rowY int, ch rune)) {
 
 // 	// Helper function which draws border runes.
 // 	borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
