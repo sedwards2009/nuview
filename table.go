@@ -242,18 +242,7 @@ func (c *TableCell) SetClickedFunc(clicked func() bool) {
 	c.Clicked = clicked
 }
 
-// TableContent defines a Table's data. You may replace a Table's default
-// implementation with your own using the Table.SetContent() function. This will
-// allow you to turn Table into a view of your own data structure. The
-// Table.Draw() function, which is called when the screen is updated, will then
-// use the (read-only) functions of this interface to update the table. The
-// write functions are only called when the corresponding functions of Table are
-// called.
-//
-// The interface's read-only functions are not called concurrently by the
-// package (provided that users of the package don't call Table.Draw() in a
-// separate goroutine, which would be uncommon and is not encouraged).
-type TableContent interface {
+type tableContent interface {
 	// Return the cell at the given position or nil if there is no cell. The
 	// row and column arguments start at 0 and end at what GetRowCount() and
 	// GetColumnCount() return, minus 1.
@@ -495,7 +484,7 @@ type Table struct {
 	separator rune
 
 	// The table's data structure.
-	content TableContent
+	content tableContent
 
 	// If true, when calculating the widths of the columns, all rows are evaluated
 	// instead of only the visible ones.
@@ -572,28 +561,11 @@ func NewTable() *Table {
 		bordersColor:        Styles.GraphicsColor,
 		separator:           ' ',
 		doubleClickDuration: StandardDoubleClick,
-	}
-	t.SetContent(nil)
-	return t
-}
-
-// SetContent sets a new content type for this table. This allows you to back
-// the table by a data structure of your own, for example one that cannot be
-// fully held in memory. For details, see the TableContent interface
-// documentation.
-//
-// A value of nil will return the table to its default implementation where all
-// of its table cells are kept in memory.
-func (t *Table) SetContent(content TableContent) {
-	t.Lock()
-	defer t.Unlock()
-	if content != nil {
-		t.content = content
-	} else {
-		t.content = &tableDefaultContent{
+		content: &tableDefaultContent{
 			lastColumn: -1,
-		}
+		},
 	}
+	return t
 }
 
 // Clear removes all table data.
