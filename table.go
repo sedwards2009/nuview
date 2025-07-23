@@ -305,43 +305,6 @@ type tableContent interface {
 	Clear()
 }
 
-// TableContentReadOnly is an empty struct which implements the write operations
-// of the TableContent interface. None of the implemented functions do anything.
-// You can embed this struct into your own structs to free yourself from having
-// to implement the empty write functions of TableContent. See
-// demos/table/virtualtable for an example.
-type TableContentReadOnly struct{}
-
-// SetCell does not do anything.
-func (t TableContentReadOnly) SetCell(row, column int, cell *TableCell) {
-	// nop.
-}
-
-// RemoveRow does not do anything.
-func (t TableContentReadOnly) RemoveRow(row int) {
-	// nop.
-}
-
-// RemoveColumn does not do anything.
-func (t TableContentReadOnly) RemoveColumn(column int) {
-	// nop.
-}
-
-// InsertRow does not do anything.
-func (t TableContentReadOnly) InsertRow(row int) {
-	// nop.
-}
-
-// InsertColumn does not do anything.
-func (t TableContentReadOnly) InsertColumn(column int) {
-	// nop.
-}
-
-// Clear does not do anything.
-func (t TableContentReadOnly) Clear() {
-	// nop.
-}
-
 // tableDefaultContent implements the default TableContent interface for the
 // Table class.
 type tableDefaultContent struct {
