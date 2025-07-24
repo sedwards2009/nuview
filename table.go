@@ -493,7 +493,8 @@ type Table struct {
 
 	// The number of rows/columns by which the table is scrolled down/to the
 	// right.
-	rowOffset, columnOffset int
+	rowOffset    int
+	columnOffset int
 
 	// If set to true, the table's last row will always be visible.
 	trackEnd bool
@@ -1857,7 +1858,7 @@ func (t *Table) navigateLeft() {
 		}
 		t.clampToSelection = true
 	} else {
-		t.columnOffset--
+		t.columnOffset = max(0, t.columnOffset-1)
 	}
 }
 
@@ -1898,7 +1899,8 @@ func (t *Table) navigateRight() {
 		}
 		t.clampToSelection = true
 	} else {
-		t.columnOffset++
+		maxColumnOffset := t.content.GetColumnCount() - t.fixedColumns - 1
+		t.columnOffset = min(t.columnOffset+1, maxColumnOffset)
 	}
 }
 
