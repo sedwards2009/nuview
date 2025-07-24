@@ -1,13 +1,10 @@
 package nuview
 
 import (
-	"log"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
-	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
 // TableCell represents one cell inside a Table. You can instantiate this type
@@ -468,10 +465,6 @@ type Table struct {
 	// The table's data structure.
 	content tableContent
 
-	// If true, when calculating the widths of the columns, all rows are evaluated
-	// instead of only the visible ones.
-	evaluateAllRows bool
-
 	// The number of fixed rows / columns.
 	fixedRows, fixedColumns int
 
@@ -494,7 +487,8 @@ type Table struct {
 	// The number of rows/columns by which the table is scrolled down/to the
 	// right.
 	rowOffset    int
-	columnOffset int
+	columnOffset int // -1 means that xScroll is being used
+	xScroll      int
 
 	// If set to true, the table's last row will always be visible.
 	trackEnd bool
@@ -677,19 +671,20 @@ func (t *Table) GetOffset() (row int, column int) {
 	return t.rowOffset, t.columnOffset
 }
 
-// SetEvaluateAllRows sets a flag which determines the rows to be evaluated when
-// calculating the widths of the table's columns. When false, only visible rows
-// are evaluated. When true, all rows in the table are evaluated.
-//
-// Set this flag to true to avoid shifting column widths when the table is
-// scrolled. (May come with a performance penalty for large tables.)
-//
-// Use with caution on very large tables, especially those not backed by the
-// default TableContent data structure.
-func (t *Table) SetEvaluateAllRows(all bool) {
+// SetXScroll sets the horizontal scroll position of the table. This overrides columnOffset.
+func (t *Table) SetXScroll(x int) {
 	t.Lock()
 	defer t.Unlock()
-	t.evaluateAllRows = all
+	t.xScroll = x
+	t.columnOffset = -1 // This indicates that xScroll is being used.
+	t.trackEnd = false
+}
+
+// GetXScroll returns the current horizontal scroll position of the table.
+func (t *Table) GetXScroll() int {
+	t.RLock()
+	defer t.RUnlock()
+	return t.xScroll
 }
 
 // SetSelectedFunc sets a handler which is called whenever the user presses the
@@ -872,7 +867,10 @@ func (t *Table) ScrollToBeginning() {
 	t.Lock()
 	defer t.Unlock()
 	t.trackEnd = false
-	t.columnOffset = 0
+	if t.columnOffset != -1 {
+		t.columnOffset = 0
+	}
+	t.xScroll = 0
 	t.rowOffset = 0
 }
 
@@ -908,49 +906,6 @@ func (t *Table) SetWrapSelection(vertical, horizontal bool) {
 	defer t.Unlock()
 	t.wrapHorizontally = horizontal
 	t.wrapVertically = vertical
-}
-
-// Draw draws this primitive onto the screen.
-func (t *Table) DrawOld(screen tcell.Screen) {
-	t.Box.Draw(screen)
-
-	// What's our available screen space?
-	_, totalHeight := screen.Size()
-	x, y, width, height := t.GetInnerRect()
-	netWidth := width
-	if t.borders {
-		t.visibleRows = height / 2
-		netWidth -= 2
-	} else {
-		t.visibleRows = height
-	}
-
-	// Setup selection and get table dimensions
-	rowCount := t.content.GetRowCount()
-	columnCount := t.content.GetColumnCount()
-	t.ensureValidSelection(rowCount, columnCount)
-
-	// Calculate row and column offsets
-	t.calculateOffsets(height, rowCount, columnCount)
-
-	// Determine visible rows
-	rows, allRows := t.calculateVisibleRows(height, rowCount)
-
-	// Determine visible columns and their widths
-	columns, widths, _ := t.calculateVisibleColumns(netWidth, columnCount, rows, allRows)
-
-	for i, column := range columns {
-		log.Printf("Column: %d: %d width: %d", i, column, widths[i])
-	}
-
-	// Draw table cells and borders
-	t.drawTableCells(screen, x, y, width, height, totalHeight, rows, columns, widths, rowCount, columnCount)
-
-	// Draw cell backgrounds and selection highlighting
-	t.drawCellBackgrounds(screen, x, y, width, height, rows, columns, widths)
-
-	// Remember column infos.
-	t.visibleColumnIndices, t.visibleColumnWidths = columns, widths
 }
 
 func (t *Table) Draw(screen tcell.Screen) {
@@ -1236,11 +1191,9 @@ func (t *Table) calculateVisibleRows(height int, rowCount int) (rows []int, allR
 		rowStep = 2 // With borders, every table row takes two screen rows.
 	}
 
-	if t.evaluateAllRows {
-		allRows = make([]int, rowCount)
-		for row := 0; row < rowCount; row++ {
-			allRows[row] = row
-		}
+	allRows = make([]int, rowCount)
+	for row := 0; row < rowCount; row++ {
+		allRows[row] = row
 	}
 
 	tableHeight := 0
@@ -1255,155 +1208,6 @@ func (t *Table) calculateVisibleRows(height int, rowCount int) (rows []int, allR
 	}
 
 	return rows, allRows
-}
-
-// calculateVisibleColumns determines which columns should be visible and their widths.
-func (t *Table) calculateVisibleColumns(viewportWidth int, columnCount int, rows, allRows []int) ([]int, []int, []int) {
-	var tableWidth int
-	var expansionTotal int
-	var columns []int
-	var widths []int
-	var expansions []int
-
-	includesSelection := !t.clampToSelection || !t.columnsSelectable
-
-	// Helper function that evaluates one column. Returns true if the column
-	// didn't fit at all.
-	indexColumn := func(column int) bool {
-		if viewportWidth == 0 || tableWidth >= viewportWidth {
-			return true
-		}
-
-		var maxWidth int
-		var expansion int
-		evaluationRows := rows
-		if t.evaluateAllRows {
-			evaluationRows = allRows
-		}
-		for _, row := range evaluationRows {
-			if cell := t.content.GetCell(row, column); cell != nil {
-				cellWidth := TaggedStringWidth(cell.Text)
-				if cell.MaxWidth > 0 {
-					cellWidth = min(cellWidth, cell.MaxWidth)
-				}
-				maxWidth = max(maxWidth, cellWidth)
-				expansion = max(expansion, cell.Expansion)
-			}
-		}
-		clampedMaxWidth := maxWidth
-		if tableWidth+maxWidth > viewportWidth {
-			clampedMaxWidth = viewportWidth - tableWidth
-		}
-		columns = append(columns, column)
-		widths = append(widths, clampedMaxWidth)
-		expansions = append(expansions, expansion)
-		tableWidth += clampedMaxWidth + 1
-		expansionTotal += expansion
-		if t.columnsSelectable && t.clampToSelection && column == t.selectedColumn {
-			// We want selections to appear fully.
-			includesSelection = clampedMaxWidth == maxWidth
-		}
-
-		return false
-	}
-
-	// Helper function that evaluates multiple columns, starting at "start" and
-	// at most ending at "maxEnd". Returns first column not included anymore (or
-	// -1 if all are included).
-	indexColumns := func(start int, maxEnd int) int {
-		if start == maxEnd {
-			return -1
-		}
-
-		if start < maxEnd {
-			// Forward-evaluate columns.
-			for column := start; column < maxEnd; column++ {
-				if indexColumn(column) {
-					return column
-				}
-			}
-			return -1
-		}
-
-		// Backward-evaluate columns.
-		startLen := len(columns)
-		defer func() {
-			// Because we went backwards, we must reverse the partial slices.
-			for i, j := startLen, len(columns)-1; i < j; i, j = i+1, j-1 {
-				columns[i], columns[j] = columns[j], columns[i]
-				widths[i], widths[j] = widths[j], widths[i]
-				expansions[i], expansions[j] = expansions[j], expansions[i]
-			}
-		}()
-		for column := start; column >= maxEnd; column-- {
-			if indexColumn(column) {
-				return column
-			}
-		}
-		return -1
-	}
-
-	// Reset the table to only its fixed columns.
-	var fixedTableWidth, fixedExpansionTotal int
-	resetColumns := func() {
-		tableWidth = fixedTableWidth
-		expansionTotal = fixedExpansionTotal
-		columns = columns[:t.fixedColumns]
-		widths = widths[:t.fixedColumns]
-		expansions = expansions[:t.fixedColumns]
-	}
-
-	// Add fixed columns.
-	if indexColumns(0, t.fixedColumns) < 0 {
-		fixedTableWidth = tableWidth
-		fixedExpansionTotal = expansionTotal
-
-		// Add unclamped columns.
-		if column := indexColumns(t.fixedColumns+t.columnOffset, columnCount); !includesSelection || column < 0 && t.columnOffset > 0 {
-			// Offset is not optimal. Try again.
-			if !includesSelection {
-				// Clamp to selection.
-				resetColumns()
-				if t.selectedColumn <= t.fixedColumns+t.columnOffset {
-					// It's on the left. Start with the selection.
-					t.columnOffset = t.selectedColumn - t.fixedColumns
-					indexColumns(t.fixedColumns+t.columnOffset, columnCount)
-				} else {
-					// It's on the right. End with the selection.
-					if column := indexColumns(t.selectedColumn, t.fixedColumns); column >= 0 {
-						t.columnOffset = column + 1 - t.fixedColumns
-					} else {
-						t.columnOffset = 0
-					}
-				}
-			} else if tableWidth < viewportWidth {
-				log.Printf("Table: Not enough columns to fill the viewport (%d < %d).", tableWidth, viewportWidth)
-				// Don't waste space. Try to fit as much on screen as possible.
-				resetColumns()
-				if column := indexColumns(columnCount-1, t.fixedColumns); column >= 0 {
-					t.columnOffset = column + 1 - t.fixedColumns
-				} else {
-					t.columnOffset = 0
-				}
-			}
-		}
-	}
-
-	// If we have space left, distribute it.
-	if tableWidth < viewportWidth {
-		toDistribute := viewportWidth - tableWidth
-		for index, expansion := range expansions {
-			if expansionTotal <= 0 {
-				break
-			}
-			expWidth := toDistribute * expansion / expansionTotal
-			widths[index] += expWidth
-			toDistribute -= expWidth
-			expansionTotal -= expansion
-		}
-	}
-
-	return columns, widths, expansions
 }
 
 // calculateVisibleColumns determines which columns should be visible and their widths.
@@ -1422,250 +1226,6 @@ func (t *Table) newCalculateColumnWidths() []int {
 		columnWidths[i] = maxWidth
 	}
 	return columnWidths
-}
-
-// drawColumn draws a single column of the table including its borders and cell content.
-func (t *Table) drawColumn(screen tcell.Screen, x int, y int, width int, height int, totalHeight int,
-	rows []int, columnIndex int, column int, columnWidth int, columnX int,
-	rowCount int, columns []int, drawBorder func(colX, rowY int, ch rune)) int {
-
-	for rowY, row := range rows {
-		if t.borders {
-			// Draw borders.
-			rowY *= 2
-			for pos := 0; pos < columnWidth && columnX+pos < width; pos++ {
-				drawBorder(columnX+pos, rowY, Borders.Horizontal)
-			}
-			ch := Borders.Cross
-			if row == 0 {
-				if column == 0 {
-					ch = Borders.TopLeft
-				} else {
-					ch = Borders.TopT
-				}
-			} else if column == 0 {
-				ch = Borders.LeftT
-			}
-			drawBorder(columnX-1, rowY, ch)
-			rowY++
-			if rowY >= height || y+rowY >= totalHeight {
-				break // No space for the text anymore.
-			}
-			drawBorder(columnX-1, rowY, Borders.Vertical)
-		} else if columnIndex < len(columns)-1 {
-			// Draw separator.
-			drawBorder(columnX+columnWidth, rowY, t.separator)
-		}
-
-		// Get the cell.
-		cell := t.content.GetCell(row, column)
-		if cell == nil {
-			continue
-		}
-
-		// Draw text.
-		finalWidth := columnWidth
-		if columnX+columnWidth >= width {
-			finalWidth = width - columnX
-		}
-		cell.x = x + columnX
-		cell.y = y + rowY
-		cell.width = finalWidth
-		style := cell.Style
-		if style == tcell.StyleDefault {
-			style = tcell.StyleDefault.Background(cell.BackgroundColor).Foreground(cell.Color).Attributes(cell.Attributes)
-		}
-		start, end := PrintStyle(screen, []byte(cell.Text), x+columnX, y+rowY, finalWidth, cell.Align, style)
-		printed := end - start
-		if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
-			_, _, style, _ := screen.GetContent(x+columnX+finalWidth-1, y+rowY)
-			PrintStyle(screen, []byte(string(SemigraphicsHorizontalEllipsis)), x+columnX+finalWidth-1, y+rowY, 1, AlignLeft, style)
-		}
-	}
-
-	// Draw bottom border.
-	if rowY := 2 * len(rows); t.borders && rowY > 0 && rowY < height {
-		for pos := 0; pos < columnWidth && columnX+1+pos < width; pos++ {
-			drawBorder(columnX+pos, rowY, Borders.Horizontal)
-		}
-		ch := Borders.Cross
-		if rows[len(rows)-1] == rowCount-1 {
-			if column == 0 {
-				ch = Borders.BottomLeft
-			} else {
-				ch = Borders.BottomT
-			}
-		} else if column == 0 {
-			ch = Borders.BottomLeft
-		}
-		drawBorder(columnX-1, rowY, ch)
-	}
-
-	return columnX + columnWidth + 1
-}
-
-// drawTableCells draws the table cells and borders.
-func (t *Table) drawTableCells(screen tcell.Screen, x int, y int, width int, height int, totalHeight int,
-	rows []int, columns []int, widths []int, rowCount int, columnCount int) {
-
-	// Helper function which draws border runes.
-	borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
-	drawBorder := func(colX, rowY int, ch rune) {
-		screen.SetContent(x+colX, y+rowY, ch, nil, borderStyle)
-	}
-
-	// Draw the cells (and borders).
-	var columnX int
-	if t.borders {
-		columnX++
-	}
-	for columnIndex, column := range columns {
-		columnWidth := widths[columnIndex]
-		columnX = t.drawColumn(screen, x, y, width, height, totalHeight, rows, columnIndex, column, columnWidth, columnX, rowCount, columns, drawBorder)
-	}
-
-	// Draw right border.
-	columnX--
-	if t.borders && len(rows) > 0 && len(columns) > 0 && columnX < width {
-		borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
-		drawBorder := func(colX, rowY int, ch rune) {
-			screen.SetContent(x+colX, y+rowY, ch, nil, borderStyle)
-		}
-
-		lastColumn := columns[len(columns)-1] == columnCount-1
-		for rowY := range rows {
-			rowY *= 2
-			if rowY+1 < height {
-				drawBorder(columnX, rowY+1, Borders.Vertical)
-			}
-			ch := Borders.Cross
-			if rowY == 0 {
-				if lastColumn {
-					ch = Borders.TopRight
-				} else {
-					ch = Borders.TopT
-				}
-			} else if lastColumn {
-				ch = Borders.RightT
-			}
-			drawBorder(columnX, rowY, ch)
-		}
-		if rowY := 2 * len(rows); rowY < height {
-			ch := Borders.BottomT
-			if lastColumn {
-				ch = Borders.BottomRight
-			}
-			drawBorder(columnX, rowY, ch)
-		}
-	}
-}
-
-// drawCellBackgrounds colors the cell backgrounds based on selection and style.
-func (t *Table) drawCellBackgrounds(screen tcell.Screen, x int, y int, width int, height int, rows []int, columns []int,
-	widths []int) {
-
-	// Helper function which colors the background of a box.
-	colorBackground := func(fromX, fromY, w, h int, backgroundColor, textColor tcell.Color, backgroundTransparent, textTransparent bool, attr tcell.AttrMask, invert bool) {
-		for by := 0; by < h && fromY+by < y+height; by++ {
-			for bx := 0; bx < w && fromX+bx < x+width; bx++ {
-				m, c, style, _ := screen.GetContent(fromX+bx, fromY+by)
-				fg, bg, a := style.Decompose()
-				if invert {
-					style = style.Background(textColor).Foreground(backgroundColor)
-				} else {
-					if !backgroundTransparent {
-						bg = backgroundColor
-					}
-					if !textTransparent {
-						fg = textColor
-					}
-					if attr != 0 {
-						a = attr
-					}
-					style = style.Background(bg).Foreground(fg).Attributes(a)
-				}
-				screen.SetContent(fromX+bx, fromY+by, m, c, style)
-			}
-		}
-	}
-
-	// Color the cell backgrounds. To avoid undesirable artefacts, we combine
-	// the drawing of a cell by background color, selected cells last.
-	type cellInfo struct {
-		x, y, w, h int
-		cell       *TableCell
-		selected   bool
-	}
-	cellsByBackgroundColor := make(map[tcell.Color][]*cellInfo)
-	var backgroundColors []tcell.Color
-	for rowY, row := range rows {
-		columnX := 0
-		rowSelected := t.rowsSelectable && !t.columnsSelectable && row == t.selectedRow
-		for columnIndex, column := range columns {
-			columnWidth := widths[columnIndex]
-			cell := t.content.GetCell(row, column)
-			if cell == nil {
-				continue
-			}
-			bx, by, bw, bh := x+columnX, y+rowY, columnWidth+1, 1
-			if t.borders {
-				by = y + rowY*2
-				bw++
-				bh = 3
-			}
-			columnSelected := t.columnsSelectable && !t.rowsSelectable && column == t.selectedColumn
-			cellSelected := !cell.NotSelectable && (columnSelected || rowSelected || t.rowsSelectable && t.columnsSelectable && column == t.selectedColumn && row == t.selectedRow)
-			backgroundColor := cell.BackgroundColor
-			if cell.Style != tcell.StyleDefault {
-				_, backgroundColor, _ = cell.Style.Decompose()
-			}
-			entries, ok := cellsByBackgroundColor[backgroundColor]
-			cellsByBackgroundColor[backgroundColor] = append(entries, &cellInfo{
-				x:        bx,
-				y:        by,
-				w:        bw,
-				h:        bh,
-				cell:     cell,
-				selected: cellSelected,
-			})
-			if !ok {
-				backgroundColors = append(backgroundColors, backgroundColor)
-			}
-			columnX += columnWidth + 1
-		}
-	}
-	sort.Slice(backgroundColors, func(i int, j int) bool {
-		// Draw brightest colors last (i.e. on top).
-		r, g, b := backgroundColors[i].RGB()
-		c := colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(b) / 255}
-		_, _, li := c.Hcl()
-		r, g, b = backgroundColors[j].RGB()
-		c = colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(b) / 255}
-		_, _, lj := c.Hcl()
-		return li < lj
-	})
-	for _, bgColor := range backgroundColors {
-		entries := cellsByBackgroundColor[bgColor]
-		for _, info := range entries {
-			textColor := info.cell.Color
-			if info.cell.Style != tcell.StyleDefault {
-				textColor, _, _ = info.cell.Style.Decompose()
-			}
-			if info.selected {
-				if info.cell.SelectedStyle != tcell.StyleDefault {
-					selFg, selBg, selAttr := info.cell.SelectedStyle.Decompose()
-					defer colorBackground(info.x, info.y, info.w, info.h, selBg, selFg, false, false, selAttr, false)
-				} else if t.selectedStyle != tcell.StyleDefault {
-					selFg, selBg, selAttr := t.selectedStyle.Decompose()
-					defer colorBackground(info.x, info.y, info.w, info.h, selBg, selFg, false, false, selAttr, false)
-				} else {
-					defer colorBackground(info.x, info.y, info.w, info.h, bgColor, textColor, false, false, 0, true)
-				}
-			} else {
-				colorBackground(info.x, info.y, info.w, info.h, bgColor, textColor, info.cell.Transparent, true, 0, false)
-			}
-		}
-	}
 }
 
 // moveSelectionForward moves the selection forward, don't go beyond final cell, return

@@ -21,7 +21,6 @@ func main() {
 
 	table := cview.NewTable()
 	table.SetBorders(true)
-	table.SetEvaluateAllRows(true)
 	table.SetSelectable(true, false)
 
 	lorem := strings.Split(loremIpsumText, " ")
