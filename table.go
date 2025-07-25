@@ -601,6 +601,7 @@ func (t *Table) SetFixed(rows int, columns int) {
 	defer t.Unlock()
 	t.fixedRows = rows
 	t.fixedColumns = columns
+	t.columnOffset = 0
 }
 
 // SetSelectable sets the flags which determine what can be selected in a table.
@@ -910,7 +911,6 @@ func (t *Table) SetWrapSelection(vertical, horizontal bool) {
 
 func (t *Table) Draw(screen tcell.Screen) {
 	t.Box.Draw(screen)
-
 	// What's our available screen space?
 	// _, totalHeight := screen.Size()
 	x, y, width, height := t.GetInnerRect()
@@ -922,53 +922,67 @@ func (t *Table) Draw(screen tcell.Screen) {
 		t.visibleRows = height
 	}
 
+	screenAdapter := NewTranslateScreenWriterAdapter(screen)
+	screenWriter := NewClippingScreenWriter(screenAdapter, x, y, width, height)
+
 	// Setup selection and get table dimensions
 	rowCount := t.content.GetRowCount()
 	columnCount := t.content.GetColumnCount()
+
+	t.calculateOffsets(height, rowCount, columnCount)
 	t.ensureValidSelection(rowCount, columnCount)
 
 	// Determine visible rows
 	rows, _ := t.calculateVisibleRows(height, rowCount)
 	columnWidths := t.newCalculateColumnWidths()
 
-	normalStartX := 0
-
+	fixedColumnsWidth := 0
 	firstVisibleColumn := t.fixedColumns + t.columnOffset
 	visibleColumnCount := columnCount - firstVisibleColumn
 	if t.fixedColumns > 0 {
-		normalStartX = t.drawCellColumnRange(screen, x, y, width, height, rows, 0, t.fixedColumns, columnWidths)
+		fixedColumnsWidth = t.drawCellColumnRange(screenWriter, rows, 0, t.fixedColumns, columnWidths)
 	}
-	t.drawCellColumnRange(screen, normalStartX, y, width, height, rows, firstVisibleColumn, visibleColumnCount, columnWidths)
+	t.drawCellColumnRange(screenWriter.NewClipXY(fixedColumnsWidth, 0), rows, firstVisibleColumn,
+		visibleColumnCount, columnWidths)
 
 	if t.fixedColumns > 0 {
-		t.drawCellBackgroundColumnRange(screen, x, y, width, height, rows, 0, t.fixedColumns, columnWidths)
+		t.drawCellBackgroundColumnRange(screenWriter, rows, 0, t.fixedColumns, columnWidths)
 	}
-	t.drawCellBackgroundColumnRange(screen, normalStartX, y, width, height, rows, firstVisibleColumn, visibleColumnCount, columnWidths)
+	t.drawCellBackgroundColumnRange(screenWriter.NewClipXY(fixedColumnsWidth, 0), rows, firstVisibleColumn,
+		visibleColumnCount, columnWidths)
 }
 
-func (t *Table) drawCellColumnRange(screen tcell.Screen, x int, y int, width int, height int, rows []int,
-	startColumn int, columnCount int, columnWidths []int) int {
-	posX := x
+func (t *Table) drawCellColumnRange(screenWriter TranslateScreenWriter, rows []int, startColumn int, columnCount int,
+	columnWidths []int) int {
+	width, _ := screenWriter.Size()
+	posX := 0
+	fixedColumnsWidth := 0
 	if t.borders {
 		for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
 			columnWidth := columnWidths[columnIndex]
-			t.drawCellColumn(screen, posX+1, y, width, rows, columnIndex, columnWidth, 1)
-			t.drawColumnBorders(screen, posX, y, width, height, len(rows), columnIndex, columnWidth)
+			if posX < width {
+				t.drawCellColumn(screenWriter.NewClipXY(posX+1, 0), rows, columnIndex, columnWidth, 1)
+				t.drawColumnBorders(screenWriter.NewClipXY(posX, 0), len(rows), columnIndex, columnWidth)
+			}
 			posX += columnWidth
+			fixedColumnsWidth += columnWidth
 			posX++
 		}
 	} else {
 		for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
 			columnWidth := columnWidths[columnIndex]
-			t.drawCellColumn(screen, posX, y, width, rows, columnIndex, columnWidth, 0)
+			if posX < width {
+				t.drawCellColumn(screenWriter.NewClipXY(posX, 0), rows, columnIndex, columnWidth, 0)
+			}
 			posX += columnWidth
+			fixedColumnsWidth += columnWidth
 			posX++
 		}
 	}
-	return posX
+	return fixedColumnsWidth
 }
 
-func (t *Table) drawCellColumn(screen tcell.Screen, x int, y int, width int, rows []int, column int,
+func (t *Table) drawCellColumn(screenWriter TranslateScreenWriter, rows []int, column int,
 	columnWidth int, verticalSpacing int) {
 
 	for rowIndex, row := range rows {
@@ -978,31 +992,26 @@ func (t *Table) drawCellColumn(screen tcell.Screen, x int, y int, width int, row
 			continue
 		}
 
-		rowY := y + verticalSpacing + ((1 + verticalSpacing) * rowIndex)
+		rowY := verticalSpacing + ((1 + verticalSpacing) * rowIndex)
 
 		// Draw text.
-		finalWidth := min(columnWidth, width)
-
-		cell.x = x
-		cell.y = rowY
-		cell.width = finalWidth
+		// finalWidth := min(columnWidth, width)
+		cell.x, cell.y = screenWriter.AbsolutePosition(0, rowY)
 
 		style := cell.Style
 		if style == tcell.StyleDefault {
 			style = tcell.StyleDefault.Background(cell.BackgroundColor).Foreground(cell.Color).Attributes(cell.Attributes)
 		}
-		start, end := PrintStyle(screen, []byte(cell.Text), x, rowY, finalWidth, cell.Align, style)
+		start, end := PrintStyle(screenWriter, []byte(cell.Text), 0, rowY, cell.width, cell.Align, style)
 		printed := end - start
 		if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
-			_, _, style, _ := screen.GetContent(x+finalWidth-1, rowY)
-			PrintStyle(screen, []byte(string(SemigraphicsHorizontalEllipsis)), x+finalWidth-1, rowY, 1, AlignLeft, style)
+			_, _, style, _ := screenWriter.GetContent(cell.width-1, rowY)
+			PrintStyle(screenWriter, []byte(string(SemigraphicsHorizontalEllipsis)), cell.width-1, rowY, 1, AlignLeft, style)
 		}
 	}
 }
 
-func (t *Table) drawColumnBorders(screen tcell.Screen, x int, y int, width int, height int, rowCount int,
-	columnIndex int, columnWidth int) {
-
+func (t *Table) drawColumnBorders(screenWriter ScreenWriter, rowCount int, columnIndex int, columnWidth int) {
 	borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
 
 	leftJointRune := Borders.Cross
@@ -1010,15 +1019,16 @@ func (t *Table) drawColumnBorders(screen tcell.Screen, x int, y int, width int, 
 		leftJointRune = Borders.LeftT
 	}
 
+	_, height := screenWriter.Size()
 	for rowIndex := range rowCount {
-		rowY := y + 2*rowIndex
+		rowY := 2 * rowIndex
 
-		screen.SetContent(x, rowY, leftJointRune, nil, borderStyle)
+		screenWriter.SetContent(0, rowY, leftJointRune, nil, borderStyle)
 		for i := range columnWidth {
-			screen.SetContent(x+i+1, rowY, Borders.Horizontal, nil, borderStyle)
+			screenWriter.SetContent(i+1, rowY, Borders.Horizontal, nil, borderStyle)
 		}
 		if rowY+1 < height {
-			screen.SetContent(x, rowY+1, Borders.Vertical, nil, borderStyle)
+			screenWriter.SetContent(0, rowY+1, Borders.Vertical, nil, borderStyle)
 		}
 	}
 	// drawBorder := func(colX, rowY int, ch rune) {
@@ -1048,8 +1058,8 @@ func (t *Table) drawColumnBorders(screen tcell.Screen, x int, y int, width int, 
 	// }
 }
 
-func (t *Table) drawCellBackgroundColumnRange(screen tcell.Screen, x int, y int, width int, height int, rows []int,
-	startColumn int, columnCount int, columnWidths []int) {
+func (t *Table) drawCellBackgroundColumnRange(screenWriter ScreenWriter, rows []int, startColumn int,
+	columnCount int, columnWidths []int) {
 
 	verticalSpacing := 0
 	if t.borders {
@@ -1060,8 +1070,8 @@ func (t *Table) drawCellBackgroundColumnRange(screen tcell.Screen, x int, y int,
 		for _, rowIndex := range rows {
 			rowSelected := rowIndex == t.selectedRow
 			if rowSelected {
-				rowY := y + verticalSpacing + ((1 + verticalSpacing) * rowIndex)
-				columnStartX := x
+				rowY := verticalSpacing + ((1 + verticalSpacing) * rowIndex)
+				columnStartX := 0
 				for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
 					columnWidth := columnWidths[columnIndex]
 
@@ -1083,24 +1093,23 @@ func (t *Table) drawCellBackgroundColumnRange(screen tcell.Screen, x int, y int,
 					}
 
 					if t.borders {
-						t.drawRectangleColor(screen, columnStartX, rowY-1, columnWidth+2, 3, selectStyle)
+						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY-1, columnWidth+2, 3, selectStyle)
 					} else {
-						t.drawRectangleColor(screen, columnStartX, rowY, columnWidth, 1, selectStyle)
+						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY, columnWidth, 1, selectStyle)
 					}
 
 					columnStartX += columnWidth + 1
 				}
-
 			}
 		}
 	}
 }
 
-func (t *Table) drawRectangleColor(screen tcell.Screen, x int, y int, width int, height int, style tcell.Style) {
+func (t *Table) drawRectangleColorScreenWriter(screenWriter ScreenWriter, x int, y int, width int, height int, style tcell.Style) {
 	for row := 0; row < height; row++ {
 		for col := 0; col < width; col++ {
-			primaryRune, comboRune, _, _ := screen.GetContent(x+col, y+row)
-			screen.SetContent(x+col, y+row, primaryRune, comboRune, style)
+			primaryRune, comboRune, _, _ := screenWriter.GetContent(x+col, y+row)
+			screenWriter.SetContent(x+col, y+row, primaryRune, comboRune, style)
 		}
 	}
 }

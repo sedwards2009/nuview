@@ -440,13 +440,13 @@ func printWithStyle(screen tcell.Screen, text string, x, y, skipWidth, maxWidth,
 //
 // Returns the number of actual bytes of the text printed (including color tags)
 // and the actual width used for the printed runes.
-func Print(screen tcell.Screen, text []byte, x, y, maxWidth, align int, color tcell.Color) (int, int) {
+func Print(screen ScreenWriter, text []byte, x, y, maxWidth, align int, color tcell.Color) (int, int) {
 	return PrintStyle(screen, text, x, y, maxWidth, align, tcell.StyleDefault.Foreground(color))
 }
 
 // PrintStyle works like Print() but it takes a style instead of just a
 // foreground color.
-func PrintStyle(screen tcell.Screen, text []byte, x, y, maxWidth, align int, style tcell.Style) (int, int) {
+func PrintStyle(screen ScreenWriter, text []byte, x, y, maxWidth, align int, style tcell.Style) (int, int) {
 	if maxWidth <= 0 || len(text) == 0 {
 		return 0, 0
 	}
