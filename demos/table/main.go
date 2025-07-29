@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/sedwards2009/nuview"
 	cview "github.com/sedwards2009/nuview"
 )
 
@@ -54,7 +55,42 @@ func main() {
 		table.SetSelectable(false, false)
 	})
 
-	app.SetRoot(table, true)
+	layout := nuview.NewFlex()
+
+	topBox := cview.NewBox()
+	topBox.SetBorder(true)
+	topBox.SetBorderAttributes(tcell.AttrBold)
+	topBox.SetTitle("Top box")
+	layout.AddItem(topBox, 10, 0, false)
+
+	innerLayout := nuview.NewFlex()
+
+	leftBox := cview.NewBox()
+	leftBox.SetBorder(true)
+	leftBox.SetBorderAttributes(tcell.AttrBold)
+	leftBox.SetTitle("Left box")
+
+	innerLayout.AddItem(leftBox, 10, 0, false)
+	innerLayout.AddItem(table, 0, 1, true)
+
+	rightBox := cview.NewBox()
+	rightBox.SetBorder(true)
+	rightBox.SetBorderAttributes(tcell.AttrBold)
+	rightBox.SetTitle("Right box")
+
+	innerLayout.AddItem(rightBox, 10, 0, false)
+	innerLayout.SetDirection(nuview.FlexColumn)
+
+	layout.AddItem(innerLayout, 0, 1, true)
+
+	bottomBox := cview.NewBox()
+	bottomBox.SetBorder(true)
+	bottomBox.SetBorderAttributes(tcell.AttrBold)
+	bottomBox.SetTitle("Bottom box")
+	layout.AddItem(bottomBox, 10, 0, false)
+	layout.SetDirection(nuview.FlexRow)
+
+	app.SetRoot(layout, true)
 	if err := app.Run(); err != nil {
 		panic(err)
 	}

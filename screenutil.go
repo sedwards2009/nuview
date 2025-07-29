@@ -13,6 +13,7 @@ type TranslateScreenWriter interface {
 	ScreenWriter
 	AbsolutePosition(x int, y int) (absX int, absY int)
 	NewClipXY(x int, y int) TranslateScreenWriter
+	NewTranslate(tx int, ty int) TranslateScreenWriter
 }
 
 // -------------------------------------------------------------------------
@@ -50,12 +51,20 @@ func (a *TranslateScreenWriterAdapter) NewClipXY(x int, y int) TranslateScreenWr
 	return c
 }
 
+func (a *TranslateScreenWriterAdapter) NewTranslate(tx int, ty int) TranslateScreenWriter {
+	width, height := a.screen.Size()
+	c := NewClippingScreenWriter(a, 0, 0, width, height)
+	return c.NewTranslate(tx, ty)
+}
+
 //-------------------------------------------------------------------------
 
 type ClippingScreenWriter struct {
 	writer ScreenWriter
 	x      int
 	y      int
+	tx     int
+	ty     int
 	width  int
 	height int
 }
@@ -78,14 +87,16 @@ func NewClippingScreenWriter(w ScreenWriter, x, y, width, height int) *ClippingS
 }
 
 func (c *ClippingScreenWriter) GetContent(x, y int) (primary rune, combining []rune, style tcell.Style, width int) {
-	return c.writer.GetContent(c.x+x, c.y+y)
+	return c.writer.GetContent(c.x+x+c.tx, c.y+y+c.ty)
 }
 
 func (c *ClippingScreenWriter) SetContent(x int, y int, primary rune, combining []rune, style tcell.Style) {
-	if x < 0 || y < 0 || x >= c.width || y >= c.height {
+	transX := x + c.tx
+	transY := y + c.ty
+	if transX < 0 || transY < 0 || transX >= c.width || transY >= c.height {
 		return
 	}
-	c.writer.SetContent(x+c.x, y+c.y, primary, combining, style)
+	c.writer.SetContent(transX+c.x, transY+c.y, primary, combining, style)
 }
 
 func (c *ClippingScreenWriter) Size() (width int, height int) {
@@ -109,8 +120,23 @@ func (c *ClippingScreenWriter) NewClipXY(x int, y int) TranslateScreenWriter {
 		writer: c.writer,
 		x:      c.x + x,
 		y:      c.y + y,
+		tx:     c.tx,
+		ty:     c.ty,
 		width:  c.width - x,
 		height: c.height - y,
+	}
+	return r
+}
+
+func (c *ClippingScreenWriter) NewTranslate(tx int, ty int) TranslateScreenWriter {
+	r := &ClippingScreenWriter{
+		writer: c.writer,
+		x:      c.x,
+		y:      c.y,
+		width:  c.width,
+		height: c.height,
+		tx:     tx + c.tx,
+		ty:     ty + c.ty,
 	}
 	return r
 }

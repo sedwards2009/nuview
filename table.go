@@ -929,57 +929,70 @@ func (t *Table) Draw(screen tcell.Screen) {
 	rowCount := t.content.GetRowCount()
 	columnCount := t.content.GetColumnCount()
 
-	t.calculateOffsets(height, rowCount, columnCount)
+	t.clampOffsets(height, rowCount, columnCount)
 	t.ensureValidSelection(rowCount, columnCount)
 
 	// Determine visible rows
 	rows, _ := t.calculateVisibleRows(height, rowCount)
 	columnWidths := t.newCalculateColumnWidths()
 
-	fixedColumnsWidth := 0
-	firstVisibleColumn := t.fixedColumns + t.columnOffset
-	visibleColumnCount := columnCount - firstVisibleColumn
-	if t.fixedColumns > 0 {
-		fixedColumnsWidth = t.drawCellColumnRange(screenWriter, rows, 0, t.fixedColumns, columnWidths)
-	}
-	t.drawCellColumnRange(screenWriter.NewClipXY(fixedColumnsWidth, 0), rows, firstVisibleColumn,
-		visibleColumnCount, columnWidths)
+	normalColumnCount := columnCount - t.fixedColumns
 
+	xOffset := t.xScroll
+	if t.columnOffset != -1 {
+		xOffset = 0
+		for i := 0; i < t.columnOffset; i++ {
+			xOffset += columnWidths[i+t.fixedColumns]
+		}
+		xOffset += t.columnOffset // Add space for the borders.
+	}
+
+	// Sum fixedColumnWidths
+	fixedColumnWidths := columnWidths[0:t.fixedColumns]
+	fixedColumnsWidth := 0
+	for _, width := range fixedColumnWidths {
+		fixedColumnsWidth += width
+	}
+	if t.borders {
+		fixedColumnsWidth += t.fixedColumns // Add space for the borders.
+	}
+
+	t.drawCellColumnRange(screenWriter.NewClipXY(fixedColumnsWidth, 0).NewTranslate(-xOffset, 0), rows, t.fixedColumns,
+		normalColumnCount, columnWidths)
+	if t.fixedColumns > 0 {
+		t.drawCellColumnRange(screenWriter, rows, 0, t.fixedColumns, columnWidths)
+	}
+
+	t.drawCellBackgroundColumnRange(screenWriter.NewClipXY(fixedColumnsWidth, 0).NewTranslate(-xOffset, 0), rows, t.fixedColumns,
+		normalColumnCount, columnWidths)
 	if t.fixedColumns > 0 {
 		t.drawCellBackgroundColumnRange(screenWriter, rows, 0, t.fixedColumns, columnWidths)
 	}
-	t.drawCellBackgroundColumnRange(screenWriter.NewClipXY(fixedColumnsWidth, 0), rows, firstVisibleColumn,
-		visibleColumnCount, columnWidths)
 }
 
 func (t *Table) drawCellColumnRange(screenWriter TranslateScreenWriter, rows []int, startColumn int, columnCount int,
 	columnWidths []int) int {
-	width, _ := screenWriter.Size()
+
 	posX := 0
-	fixedColumnsWidth := 0
 	if t.borders {
 		for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
 			columnWidth := columnWidths[columnIndex]
-			if posX < width {
-				t.drawCellColumn(screenWriter.NewClipXY(posX+1, 0), rows, columnIndex, columnWidth, 1)
-				t.drawColumnBorders(screenWriter.NewClipXY(posX, 0), len(rows), columnIndex, columnWidth)
-			}
+
+			t.drawCellColumn(screenWriter.NewTranslate(posX+1, 0), rows, columnIndex, columnWidth, 1)
+			isLastColumn := columnIndex == startColumn+columnCount-1
+			t.drawColumnBorders(screenWriter.NewTranslate(posX, 0), rows, columnIndex, columnWidth, isLastColumn)
 			posX += columnWidth
-			fixedColumnsWidth += columnWidth
 			posX++
 		}
 	} else {
 		for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
 			columnWidth := columnWidths[columnIndex]
-			if posX < width {
-				t.drawCellColumn(screenWriter.NewClipXY(posX, 0), rows, columnIndex, columnWidth, 0)
-			}
+			t.drawCellColumn(screenWriter.NewClipXY(posX, 0), rows, columnIndex, columnWidth, 0)
 			posX += columnWidth
-			fixedColumnsWidth += columnWidth
 			posX++
 		}
 	}
-	return fixedColumnsWidth
+	return posX
 }
 
 func (t *Table) drawCellColumn(screenWriter TranslateScreenWriter, rows []int, column int,
@@ -1002,7 +1015,7 @@ func (t *Table) drawCellColumn(screenWriter TranslateScreenWriter, rows []int, c
 		if style == tcell.StyleDefault {
 			style = tcell.StyleDefault.Background(cell.BackgroundColor).Foreground(cell.Color).Attributes(cell.Attributes)
 		}
-		start, end := PrintStyle(screenWriter, []byte(cell.Text), 0, rowY, cell.width, cell.Align, style)
+		start, end := PrintStyle(screenWriter, []byte(cell.Text), 0, rowY, columnWidth, cell.Align, style)
 		printed := end - start
 		if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
 			_, _, style, _ := screenWriter.GetContent(cell.width-1, rowY)
@@ -1011,7 +1024,9 @@ func (t *Table) drawCellColumn(screenWriter TranslateScreenWriter, rows []int, c
 	}
 }
 
-func (t *Table) drawColumnBorders(screenWriter ScreenWriter, rowCount int, columnIndex int, columnWidth int) {
+func (t *Table) drawColumnBorders(screenWriter ScreenWriter, rows []int, columnIndex int, columnWidth int,
+	drawRightEdge bool) {
+
 	borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
 
 	leftJointRune := Borders.Cross
@@ -1020,42 +1035,35 @@ func (t *Table) drawColumnBorders(screenWriter ScreenWriter, rowCount int, colum
 	}
 
 	_, height := screenWriter.Size()
-	for rowIndex := range rowCount {
+	for rowIndex, row := range rows {
 		rowY := 2 * rowIndex
 
-		screenWriter.SetContent(0, rowY, leftJointRune, nil, borderStyle)
+		topLeftJointRune := leftJointRune
+		if row == 0 {
+			if columnIndex == 0 {
+				topLeftJointRune = Borders.TopLeft
+			} else {
+				topLeftJointRune = Borders.TopT
+			}
+		}
+
+		screenWriter.SetContent(0, rowY, topLeftJointRune, nil, borderStyle)
 		for i := range columnWidth {
 			screenWriter.SetContent(i+1, rowY, Borders.Horizontal, nil, borderStyle)
 		}
 		if rowY+1 < height {
 			screenWriter.SetContent(0, rowY+1, Borders.Vertical, nil, borderStyle)
 		}
-	}
-	// drawBorder := func(colX, rowY int, ch rune) {
-	// 	screen.SetContent(x+colX, y+rowY, ch, nil, borderStyle)
-	// }
 
-	// // Draw the borders.
-	// columnX := x
-	// if t.borders {
-	// 	columnX++
-	// }
-	// for rowIndex := range rows {
-	// 	rowY := y + verticalSpacing + ((1 + verticalSpacing) * rowIndex)
-	// 	if rowY+verticalSpacing < height {
-	// 		drawBorder(columnX, rowY+verticalSpacing, Borders.Vertical)
-	// 	}
-	// 	ch := Borders.Cross
-	// 	if rowIndex == 0 {
-	// 		ch = Borders.TopLeft
-	// 	} else if rowIndex == len(rows)-1 {
-	// 		ch = Borders.BottomLeft
-	// 	}
-	// 	drawBorder(columnX, rowY, ch)
-	// }
-	// if columnX < width && len(rows) > 0 {
-	// 	drawBorder(columnX-1, y+verticalSpacing+((1+verticalSpacing)*len(rows)-1), Borders.BottomRight)
-	// }
+		if drawRightEdge {
+			rightJoint := Borders.RightT
+			if row == 0 {
+				rightJoint = Borders.TopRight
+			}
+			screenWriter.SetContent(columnWidth+1, rowY, rightJoint, nil, borderStyle)
+			screenWriter.SetContent(columnWidth+1, rowY+1, Borders.Vertical, nil, borderStyle)
+		}
+	}
 }
 
 func (t *Table) drawCellBackgroundColumnRange(screenWriter ScreenWriter, rows []int, startColumn int,
@@ -1137,12 +1145,9 @@ func (t *Table) ensureValidSelection(rowCount int, columnCount int) {
 	}
 }
 
-// calculateOffsets calculates and adjusts row and column offsets based on selection and constraints.
-func (t *Table) calculateOffsets(height int, rowCount int, columnCount int) {
+// clampOffsets calculates and adjusts row and column offsets based on selection and constraints.
+func (t *Table) clampOffsets(height int, rowCount int, columnCount int) {
 	// Clamp row offsets if requested.
-	defer func() {
-		t.clampToSelection = false // Only once.
-	}()
 	if t.clampToSelection && t.rowsSelectable {
 		if t.selectedRow >= t.fixedRows && t.selectedRow < t.fixedRows+t.rowOffset {
 			t.rowOffset = t.selectedRow - t.fixedRows
@@ -1190,6 +1195,8 @@ func (t *Table) calculateOffsets(height int, rowCount int, columnCount int) {
 	if t.columnOffset < 0 {
 		t.columnOffset = 0
 	}
+
+	t.clampToSelection = false // Only once.
 }
 
 // calculateVisibleRows determines which rows should be visible on screen.
