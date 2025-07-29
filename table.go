@@ -1074,7 +1074,27 @@ func (t *Table) drawCellBackgroundColumnRange(screenWriter ScreenWriter, rows []
 		verticalSpacing = 1
 	}
 
-	if t.rowsSelectable {
+	if t.rowsSelectable && t.columnsSelectable {
+		for _, rowIndex := range rows {
+			rowSelected := rowIndex == t.selectedRow
+			if rowSelected {
+				columnStartX := 0
+				for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
+					columnWidth := columnWidths[columnIndex]
+					if t.selectedColumn == columnIndex {
+						rowY := verticalSpacing + ((1 + verticalSpacing) * rowIndex)
+						selectStyle := t.getSelectStyleForCell(rowIndex, columnIndex)
+						if t.borders {
+							t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY-1, columnWidth+2, 3, selectStyle)
+						} else {
+							t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY, columnWidth, 1, selectStyle)
+						}
+					}
+					columnStartX += columnWidth + 1
+				}
+			}
+		}
+	} else if t.rowsSelectable {
 		for _, rowIndex := range rows {
 			rowSelected := rowIndex == t.selectedRow
 			if rowSelected {
@@ -1092,9 +1112,7 @@ func (t *Table) drawCellBackgroundColumnRange(screenWriter ScreenWriter, rows []
 				}
 			}
 		}
-	}
-
-	if t.columnsSelectable {
+	} else if t.columnsSelectable {
 		columnStartX := 0
 		for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
 			columnWidth := columnWidths[columnIndex]

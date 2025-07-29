@@ -22,7 +22,7 @@ func main() {
 
 	table := cview.NewTable()
 	table.SetBorders(true)
-	table.SetSelectable(false, true)
+	table.SetSelectable(true, true)
 
 	lorem := strings.Split(loremIpsumText, " ")
 	cols, rows := 20, 40
