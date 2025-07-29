@@ -1082,35 +1082,56 @@ func (t *Table) drawCellBackgroundColumnRange(screenWriter ScreenWriter, rows []
 				columnStartX := 0
 				for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
 					columnWidth := columnWidths[columnIndex]
-
-					cell := t.content.GetCell(rowIndex, columnIndex)
-					var selectStyle tcell.Style
-					if cell.SelectedStyle != tcell.StyleDefault {
-						selectStyle = cell.SelectedStyle
-					} else if t.selectedStyle != tcell.StyleDefault {
-						selectStyle = t.selectedStyle
-					} else {
-						textColor := cell.Color
-						backgroundColor := cell.BackgroundColor
-						if cell.Style != tcell.StyleDefault {
-							textColor, backgroundColor, _ = cell.Style.Decompose()
-						}
-						// _, _, style, _ := screen.GetContent(columnStartX+1, rowY)
-						// fg, bg, _ := style.Decompose()
-						selectStyle = tcell.StyleDefault.Background(textColor).Foreground(backgroundColor)
-					}
-
+					selectStyle := t.getSelectStyleForCell(rowIndex, columnIndex)
 					if t.borders {
 						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY-1, columnWidth+2, 3, selectStyle)
 					} else {
 						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY, columnWidth, 1, selectStyle)
 					}
-
 					columnStartX += columnWidth + 1
 				}
 			}
 		}
 	}
+
+	if t.columnsSelectable {
+		columnStartX := 0
+		for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
+			columnWidth := columnWidths[columnIndex]
+			if t.selectedColumn == columnIndex {
+				for _, rowIndex := range rows {
+					rowY := verticalSpacing + ((1 + verticalSpacing) * rowIndex)
+					selectStyle := t.getSelectStyleForCell(rowIndex, columnIndex)
+					if t.borders {
+						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY-1, columnWidth+2, 3, selectStyle)
+					} else {
+						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY, columnWidth, 1, selectStyle)
+					}
+				}
+			}
+			columnStartX += columnWidth + 1
+		}
+	}
+}
+
+func (t *Table) getSelectStyleForCell(rowIndex int, columnIndex int) tcell.Style {
+	cell := t.content.GetCell(rowIndex, columnIndex)
+	var selectStyle tcell.Style
+	if cell.SelectedStyle != tcell.StyleDefault {
+		selectStyle = cell.SelectedStyle
+	} else if t.selectedStyle != tcell.StyleDefault {
+		selectStyle = t.selectedStyle
+	} else {
+		textColor := cell.Color
+		backgroundColor := cell.BackgroundColor
+		if cell.Style != tcell.StyleDefault {
+			textColor, backgroundColor, _ = cell.Style.Decompose()
+		}
+		// _, _, style, _ := screen.GetContent(columnStartX+1, rowY)
+		// fg, bg, _ := style.Decompose()
+		selectStyle = tcell.StyleDefault.Background(textColor).Foreground(backgroundColor)
+	}
+	return selectStyle
 }
 
 func (t *Table) drawRectangleColorScreenWriter(screenWriter ScreenWriter, x int, y int, width int, height int, style tcell.Style) {
