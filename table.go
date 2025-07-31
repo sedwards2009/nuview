@@ -500,10 +500,6 @@ type Table struct {
 	// drawn.
 	visibleColumnIndices []int
 
-	// The net widths of the visible columns as of the last time the table was
-	// drawn.
-	visibleColumnWidths []int
-
 	// The style of the selected rows. If this value is the empty struct,
 	// selected rows are simply inverted.
 	selectedStyle tcell.Style
@@ -842,23 +838,37 @@ func (t *Table) CellAt(x, y int) (row int, column int) {
 		}
 	}
 
-	// Saerch for the clicked column.
 	column = -1
-	if x >= rectX {
-		columnX := rectX
+	columnWidths := t.calculateColumnWidths()
+	relX := x - rectX
+	posX := 0
+	for i := 0; i < t.fixedColumns; i++ {
+		posX += columnWidths[i]
 		if t.borders {
-			columnX++
+			posX++ // Add space for the borders.
 		}
-		for index, width := range t.visibleColumnWidths {
-			columnX += width + 1
-			if x < columnX {
-				column = t.visibleColumnIndices[index]
-				break
-			}
+		if relX < posX {
+			column = i
+			return row, column
+		}
+	}
+	if t.borders {
+		posX++ // Add space for the borders.
+	}
+
+	posX += t.effectiveXOffset(columnWidths)
+	for i := t.fixedColumns; i < len(columnWidths); i++ {
+		posX += columnWidths[i]
+		if t.borders {
+			posX++ // Add space for the borders.
+		}
+		if relX < posX {
+			column = i
+			return row, column
 		}
 	}
 
-	return
+	return row, column
 }
 
 // ScrollToBeginning scrolls the table to the beginning to that the top left
@@ -934,18 +944,11 @@ func (t *Table) Draw(screen tcell.Screen) {
 
 	// Determine visible rows
 	rows, _ := t.calculateVisibleRows(height, rowCount)
-	columnWidths := t.newCalculateColumnWidths()
+	columnWidths := t.calculateColumnWidths()
 
 	normalColumnCount := columnCount - t.fixedColumns
 
-	xOffset := t.xScroll
-	if t.columnOffset != -1 {
-		xOffset = 0
-		for i := 0; i < t.columnOffset; i++ {
-			xOffset += columnWidths[i+t.fixedColumns]
-		}
-		xOffset += t.columnOffset // Add space for the borders.
-	}
+	xOffset := t.effectiveXOffset(columnWidths)
 
 	// Sum fixedColumnWidths
 	fixedColumnWidths := columnWidths[0:t.fixedColumns]
@@ -968,6 +971,18 @@ func (t *Table) Draw(screen tcell.Screen) {
 	if t.fixedColumns > 0 {
 		t.drawCellBackgroundColumnRange(screenWriter, rows, 0, t.fixedColumns, columnWidths)
 	}
+}
+
+func (t *Table) effectiveXOffset(columnWidths []int) int {
+	xOffset := t.xScroll
+	if t.columnOffset != -1 {
+		xOffset = 0
+		for i := 0; i < t.columnOffset; i++ {
+			xOffset += columnWidths[i+t.fixedColumns]
+		}
+		xOffset += t.columnOffset // Add space for the borders.
+	}
+	return xOffset
 }
 
 func (t *Table) drawCellColumnRange(screenWriter TranslateScreenWriter, rows []int, startColumn int, columnCount int,
@@ -1266,7 +1281,7 @@ func (t *Table) calculateVisibleRows(height int, rowCount int) (rows []int, allR
 }
 
 // calculateVisibleColumns determines which columns should be visible and their widths.
-func (t *Table) newCalculateColumnWidths() []int {
+func (t *Table) calculateColumnWidths() []int {
 	rowCount := t.content.GetRowCount()
 	columnCount := t.content.GetColumnCount()
 
