@@ -939,8 +939,8 @@ func (t *Table) Draw(screen tcell.Screen) {
 	rowCount := t.content.GetRowCount()
 	columnCount := t.content.GetColumnCount()
 
-	t.clampOffsets(height, rowCount, columnCount)
 	t.ensureValidSelection(rowCount, columnCount)
+	t.clampOffsets(height, rowCount, columnCount)
 
 	// Determine visible rows
 	rows, _ := t.calculateVisibleRows(height, rowCount)
@@ -949,16 +949,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 	normalColumnCount := columnCount - t.fixedColumns
 
 	xOffset := t.effectiveXOffset(columnWidths)
-
-	// Sum fixedColumnWidths
-	fixedColumnWidths := columnWidths[0:t.fixedColumns]
-	fixedColumnsWidth := 0
-	for _, width := range fixedColumnWidths {
-		fixedColumnsWidth += width
-	}
-	if t.borders {
-		fixedColumnsWidth += t.fixedColumns // Add space for the borders.
-	}
+	fixedColumnsWidth := t.effectiveColumnsWidth(columnWidths[0:t.fixedColumns])
 
 	t.drawCellColumnRange(screenWriter.NewClipXY(fixedColumnsWidth, 0).NewTranslate(-xOffset, 0), rows, t.fixedColumns,
 		normalColumnCount, columnWidths)
@@ -983,6 +974,26 @@ func (t *Table) effectiveXOffset(columnWidths []int) int {
 		xOffset += t.columnOffset // Add space for the borders.
 	}
 	return xOffset
+}
+
+func (t *Table) MaximumXOffset() int {
+	_, _, width, _ := t.GetInnerRect()
+	columnWidths := t.calculateColumnWidths()
+	fixedColumnsWidth := t.effectiveColumnsWidth(columnWidths[0:t.fixedColumns])
+	effectiveWidth := width - fixedColumnsWidth
+	normalColumnsWidth := t.effectiveColumnsWidth(columnWidths[t.fixedColumns:])
+	return max(0, effectiveWidth-normalColumnsWidth)
+}
+
+func (t *Table) effectiveColumnsWidth(widths []int) int {
+	columnsWidth := 0
+	for _, width := range widths {
+		columnsWidth += width
+	}
+	if t.borders {
+		columnsWidth += len(widths) // Add space for the borders.
+	}
+	return columnsWidth
 }
 
 func (t *Table) drawCellColumnRange(screenWriter TranslateScreenWriter, rows []int, startColumn int, columnCount int,
@@ -1097,7 +1108,7 @@ func (t *Table) drawCellBackgroundColumnRange(screenWriter ScreenWriter, rows []
 				for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
 					columnWidth := columnWidths[columnIndex]
 					if t.selectedColumn == columnIndex {
-						rowY := verticalSpacing + ((1 + verticalSpacing) * rowIndex)
+						rowY := verticalSpacing + ((1 + verticalSpacing) * (rowIndex - t.rowOffset))
 						selectStyle := t.getSelectStyleForCell(rowIndex, columnIndex)
 						if t.borders {
 							t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY-1, columnWidth+2, 3, selectStyle)
@@ -1113,7 +1124,7 @@ func (t *Table) drawCellBackgroundColumnRange(screenWriter ScreenWriter, rows []
 		for _, rowIndex := range rows {
 			rowSelected := rowIndex == t.selectedRow
 			if rowSelected {
-				rowY := verticalSpacing + ((1 + verticalSpacing) * rowIndex)
+				rowY := verticalSpacing + ((1 + verticalSpacing) * (rowIndex - t.rowOffset))
 				columnStartX := 0
 				for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
 					columnWidth := columnWidths[columnIndex]
@@ -1133,7 +1144,7 @@ func (t *Table) drawCellBackgroundColumnRange(screenWriter ScreenWriter, rows []
 			columnWidth := columnWidths[columnIndex]
 			if t.selectedColumn == columnIndex {
 				for _, rowIndex := range rows {
-					rowY := verticalSpacing + ((1 + verticalSpacing) * rowIndex)
+					rowY := verticalSpacing + ((1 + verticalSpacing) * (rowIndex - t.rowOffset))
 					selectStyle := t.getSelectStyleForCell(rowIndex, columnIndex)
 					if t.borders {
 						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY-1, columnWidth+2, 3, selectStyle)
@@ -1201,42 +1212,31 @@ func (t *Table) ensureValidSelection(rowCount int, columnCount int) {
 
 // clampOffsets calculates and adjusts row and column offsets based on selection and constraints.
 func (t *Table) clampOffsets(height int, rowCount int, columnCount int) {
+	screenHeightRows := height
+	if t.borders {
+		screenHeightRows = height / 2 // With borders, every table row takes two screen rows.
+	}
+
 	// Clamp row offsets if requested.
 	if t.clampToSelection && t.rowsSelectable {
 		if t.selectedRow >= t.fixedRows && t.selectedRow < t.fixedRows+t.rowOffset {
 			t.rowOffset = t.selectedRow - t.fixedRows
 			t.trackEnd = false
 		}
-		if t.borders {
-			if t.selectedRow+1-t.rowOffset >= height/2 {
-				t.rowOffset = t.selectedRow + 1 - height/2
-				t.trackEnd = false
-			}
-		} else {
-			if t.selectedRow+1-t.rowOffset >= height {
-				t.rowOffset = t.selectedRow + 1 - height
-				t.trackEnd = false
-			}
+		if t.selectedRow+1-t.rowOffset >= screenHeightRows {
+			t.rowOffset = t.selectedRow + 1 - screenHeightRows
+			t.trackEnd = false
 		}
 	}
 	if t.rowOffset < 0 {
 		t.rowOffset = 0
 	}
-	if t.borders {
-		if rowCount-t.rowOffset < height/2 {
-			t.trackEnd = true
-		}
-	} else {
-		if rowCount-t.rowOffset < height {
-			t.trackEnd = true
-		}
+	if rowCount-t.rowOffset < screenHeightRows {
+		t.trackEnd = true
 	}
+
 	if t.trackEnd {
-		if t.borders {
-			t.rowOffset = rowCount - height/2
-		} else {
-			t.rowOffset = rowCount - height
-		}
+		t.rowOffset = rowCount - screenHeightRows
 	}
 	if t.rowOffset < 0 {
 		t.rowOffset = 0
