@@ -940,7 +940,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 	columnCount := t.content.GetColumnCount()
 
 	t.ensureValidSelection(rowCount, columnCount)
-	t.clampOffsets(height, rowCount, columnCount)
+	t.clampOffsets(height, width, rowCount, columnCount)
 
 	// Determine visible rows
 	rows, _ := t.calculateVisibleRows(height, rowCount)
@@ -1190,9 +1190,6 @@ func (t *Table) drawRectangleColorScreenWriter(screenWriter ScreenWriter, x int,
 // ensureValidSelection ensures that the current selection is valid and selectable.
 func (t *Table) ensureValidSelection(rowCount int, columnCount int) {
 	if t.rowsSelectable || t.columnsSelectable {
-		if t.selectedColumn < 0 {
-			t.selectedColumn = 0
-		}
 		if t.selectedRow < 0 {
 			t.selectedRow = 0
 		}
@@ -1207,11 +1204,18 @@ func (t *Table) ensureValidSelection(rowCount int, columnCount int) {
 				t.selectedRow++
 			}
 		}
+
+		if t.selectedColumn < 0 {
+			t.selectedColumn = 0
+		}
+		if t.selectedColumn >= columnCount {
+			t.selectedColumn = columnCount - 1
+		}
 	}
 }
 
 // clampOffsets calculates and adjusts row and column offsets based on selection and constraints.
-func (t *Table) clampOffsets(height int, rowCount int, columnCount int) {
+func (t *Table) clampOffsets(height int, width int, rowCount int, columnCount int) {
 	screenHeightRows := height
 	if t.borders {
 		screenHeightRows = height / 2 // With borders, every table row takes two screen rows.
@@ -1242,12 +1246,42 @@ func (t *Table) clampOffsets(height int, rowCount int, columnCount int) {
 		t.rowOffset = 0
 	}
 
-	// Avoid invalid column offsets.
-	if t.columnOffset >= columnCount-t.fixedColumns {
-		t.columnOffset = columnCount - t.fixedColumns - 1
+	if t.clampToSelection && t.columnsSelectable {
+		if t.columnOffset != -1 {
+			if t.selectedColumn >= t.fixedColumns && t.selectedColumn < t.fixedColumns+t.columnOffset {
+				t.columnOffset = t.selectedColumn - t.fixedColumns
+			}
+
+			if t.selectedColumn >= t.fixedColumns {
+				columnWidths := t.calculateColumnWidths()
+				effectiveWidth := width - t.effectiveColumnsWidth(columnWidths[0:t.fixedColumns])
+
+				maxColumnOffset := columnCount - t.fixedColumns - 1
+				for {
+					selectionRightEdge := t.effectiveColumnsWidth(columnWidths[t.fixedColumns+t.columnOffset : t.selectedColumn+1])
+					if t.columnOffset >= maxColumnOffset || selectionRightEdge > effectiveWidth {
+						if t.columnOffset >= maxColumnOffset {
+							break
+						}
+						t.columnOffset++
+					} else {
+						break
+					}
+				}
+			}
+		}
 	}
-	if t.columnOffset < 0 {
-		t.columnOffset = 0
+
+	if t.columnOffset == -1 {
+
+	} else {
+		// Avoid invalid column offsets.
+		if t.columnOffset >= columnCount-t.fixedColumns {
+			t.columnOffset = columnCount - t.fixedColumns - 1
+		}
+		if t.columnOffset < 0 {
+			t.columnOffset = 0
+		}
 	}
 
 	t.clampToSelection = false // Only once.
