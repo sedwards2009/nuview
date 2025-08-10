@@ -331,6 +331,7 @@ func (t *tableDefaultContent) SetCell(row, column int, cell *TableCell) {
 		}
 	}
 	t.cells[row][column] = cell
+	cell.updateWidth()
 	if column > t.lastColumn {
 		t.lastColumn = column
 	}
@@ -856,7 +857,7 @@ func (t *Table) CellAt(x, y int) (row int, column int) {
 		posX++ // Add space for the borders.
 	}
 
-	posX += t.effectiveXOffset(columnWidths)
+	relX += t.effectiveXOffset(columnWidths)
 	for i := t.fixedColumns; i < len(columnWidths); i++ {
 		posX += columnWidths[i]
 		if t.borders {
@@ -982,7 +983,7 @@ func (t *Table) MaximumXOffset() int {
 	fixedColumnsWidth := t.effectiveColumnsWidth(columnWidths[0:t.fixedColumns])
 	effectiveWidth := width - fixedColumnsWidth
 	normalColumnsWidth := t.effectiveColumnsWidth(columnWidths[t.fixedColumns:])
-	return max(0, effectiveWidth-normalColumnsWidth)
+	return max(0, normalColumnsWidth-effectiveWidth+1)
 }
 
 func (t *Table) effectiveColumnsWidth(widths []int) int {
@@ -1269,11 +1270,25 @@ func (t *Table) clampOffsets(height int, width int, rowCount int, columnCount in
 					}
 				}
 			}
+		} else {
+			// If columnOffset is -1, we use xScroll.
+			if t.selectedColumn >= t.fixedColumns {
+				columnWidths := t.calculateColumnWidths()
+				effectiveWidth := width - t.effectiveColumnsWidth(columnWidths[0:t.fixedColumns])
+
+				left, right := t.normalColumnLeftRightPositions(columnWidths, t.selectedColumn)
+				if left-t.xScroll < 0 {
+					t.xScroll = left
+				} else if right-t.xScroll > effectiveWidth {
+					t.xScroll = -(effectiveWidth - right)
+				}
+			}
 		}
 	}
 
 	if t.columnOffset == -1 {
-
+		t.xScroll = min(t.MaximumXOffset(), t.xScroll)
+		t.xScroll = max(0, t.xScroll)
 	} else {
 		// Avoid invalid column offsets.
 		if t.columnOffset >= columnCount-t.fixedColumns {
@@ -1285,6 +1300,15 @@ func (t *Table) clampOffsets(height int, width int, rowCount int, columnCount in
 	}
 
 	t.clampToSelection = false // Only once.
+}
+
+func (t *Table) normalColumnLeftRightPositions(columnWidths []int, columnIndex int) (left int, right int) {
+	left = t.effectiveColumnsWidth(columnWidths[t.fixedColumns:columnIndex])
+	right = t.effectiveColumnsWidth(columnWidths[t.fixedColumns : columnIndex+1])
+	if t.borders {
+		right++
+	}
+	return
 }
 
 // calculateVisibleRows determines which rows should be visible on screen.
