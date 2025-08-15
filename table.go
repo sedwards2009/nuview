@@ -986,6 +986,19 @@ func (t *Table) MaximumXOffset() int {
 	return max(0, normalColumnsWidth-effectiveWidth+1)
 }
 
+func (t *Table) ScrollableWidth() int {
+	columnWidths := t.calculateColumnWidths()
+	normalColumnsWidth := t.effectiveColumnsWidth(columnWidths[t.fixedColumns:])
+	return normalColumnsWidth
+}
+
+func (t *Table) ScrollableViewportWidth() int {
+	columnWidths := t.calculateColumnWidths()
+	fixedColumnsWidth := t.effectiveColumnsWidth(columnWidths[0:t.fixedColumns])
+	_, _, width, _ := t.GetInnerRect()
+	return max(0, width-fixedColumnsWidth)
+}
+
 func (t *Table) effectiveColumnsWidth(widths []int) int {
 	columnsWidth := 0
 	for _, width := range widths {
@@ -1014,7 +1027,7 @@ func (t *Table) drawCellColumnRange(screenWriter TranslateScreenWriter, rows []i
 	} else {
 		for columnIndex := startColumn; columnIndex < startColumn+columnCount; columnIndex++ {
 			columnWidth := columnWidths[columnIndex]
-			t.drawCellColumn(screenWriter.NewClipXY(posX, 0), rows, columnIndex, columnWidth, 0)
+			t.drawCellColumn(screenWriter.NewTranslate(posX, 0), rows, columnIndex, columnWidth, 0)
 			posX += columnWidth
 			posX++
 		}
@@ -1042,6 +1055,9 @@ func (t *Table) drawCellColumn(screenWriter TranslateScreenWriter, rows []int, c
 		if style == tcell.StyleDefault {
 			style = tcell.StyleDefault.Background(cell.BackgroundColor).Foreground(cell.Color).Attributes(cell.Attributes)
 		}
+
+		t.drawRectangleColorScreenWriter(screenWriter, 0, rowY, columnWidth+1, 1, style)
+
 		start, end := PrintStyle(screenWriter, []byte(cell.Text), 0, rowY, columnWidth, cell.Align, style)
 		printed := end - start
 		if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
@@ -1114,7 +1130,7 @@ func (t *Table) drawCellBackgroundColumnRange(screenWriter ScreenWriter, rows []
 						if t.borders {
 							t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY-1, columnWidth+2, 3, selectStyle)
 						} else {
-							t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY, columnWidth, 1, selectStyle)
+							t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY, columnWidth+1, 1, selectStyle)
 						}
 					}
 					columnStartX += columnWidth + 1
@@ -1133,7 +1149,7 @@ func (t *Table) drawCellBackgroundColumnRange(screenWriter ScreenWriter, rows []
 					if t.borders {
 						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY-1, columnWidth+2, 3, selectStyle)
 					} else {
-						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY, columnWidth, 1, selectStyle)
+						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY, columnWidth+1, 1, selectStyle)
 					}
 					columnStartX += columnWidth + 1
 				}
@@ -1150,7 +1166,7 @@ func (t *Table) drawCellBackgroundColumnRange(screenWriter ScreenWriter, rows []
 					if t.borders {
 						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY-1, columnWidth+2, 3, selectStyle)
 					} else {
-						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY, columnWidth, 1, selectStyle)
+						t.drawRectangleColorScreenWriter(screenWriter, columnStartX, rowY, columnWidth+1, 1, selectStyle)
 					}
 				}
 			}
