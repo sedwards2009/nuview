@@ -137,6 +137,13 @@ func (f *Flex) RemoveItem(p Primitive) {
 	}
 }
 
+func (f *Flex) ClearItems() {
+	f.Lock()
+	defer f.Unlock()
+
+	f.items = nil
+}
+
 // ResizeItem sets a new size for the item(s) with the given primitive. If there
 // are multiple Flex items with the same primitive, they will all receive the
 // same size. For details regarding the size parameters, see AddItem().
