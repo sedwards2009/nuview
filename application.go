@@ -112,6 +112,8 @@ type Application struct {
 	lastMouseClick          time.Time        // The time when a mouse button was last clicked.
 	lastMouseButtons        tcell.ButtonMask // The last mouse button state.
 
+	enableCtrlCQuit bool // Whether or not Ctrl-C should quit the application. Enabled by default.
+
 	sync.RWMutex
 }
 
@@ -122,6 +124,7 @@ func NewApplication() *Application {
 		events:               make(chan tcell.Event, queueSize),
 		updates:              make(chan func(), queueSize),
 		screenReplacement:    make(chan tcell.Screen, 1),
+		enableCtrlCQuit:      true,
 	}
 }
 
@@ -166,6 +169,21 @@ func (a *Application) GetInputCapture() func(event *tcell.EventKey) *tcell.Event
 	defer a.RUnlock()
 
 	return a.inputCapture
+}
+
+// GetCtrlCQuitEnabled returns whether or not Ctrl-C will quit the application.
+func (a *Application) IsCtrlCQuitEnabled() bool {
+	a.RLock()
+	defer a.RUnlock()
+	return a.enableCtrlCQuit
+}
+
+// SetCtrlCQuit sets whether or not Ctrl-C will quit the application. This is
+// enabled by default.
+func (a *Application) EnableCtrlCQuit(enable bool) {
+	a.Lock()
+	defer a.Unlock()
+	a.enableCtrlCQuit = enable
 }
 
 // SetMouseCapture sets a function which captures mouse events (consisting of
@@ -376,7 +394,7 @@ func (a *Application) Run() error {
 			}
 
 			// Ctrl-C closes the application.
-			if event.Key() == tcell.KeyCtrlC {
+			if a.enableCtrlCQuit && event.Key() == tcell.KeyCtrlC {
 				a.Stop()
 				return
 			}
