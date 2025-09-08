@@ -13,6 +13,8 @@ type Box struct {
 	// The position of the rect.
 	x, y, width, height int
 
+	name string
+
 	// Padding.
 	paddingTop, paddingBottom, paddingLeft, paddingRight int
 
@@ -120,6 +122,19 @@ func (b *Box) updateInnerRect() {
 	}
 
 	b.innerX, b.innerY, b.innerWidth, b.innerHeight = x, y, width, height
+}
+
+// Impl GetName() and SetName() to satisfy the Named interface.
+func (b *Box) GetName() string {
+	b.l.RLock()
+	defer b.l.RUnlock()
+	return b.name
+}
+
+func (b *Box) SetName(name string) {
+	b.l.Lock()
+	defer b.l.Unlock()
+	b.name = name
 }
 
 // GetPadding returns the size of the padding around the box content.

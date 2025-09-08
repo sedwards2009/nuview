@@ -4,6 +4,9 @@ import "github.com/gdamore/tcell/v2"
 
 // Primitive is the top-most interface for all graphical primitives.
 type Primitive interface {
+	GetName() string
+	SetName(name string)
+
 	// Draw draws this primitive onto the screen. Implementers can call the
 	// screen's ShowCursor() function but should only do so when they have focus.
 	// (They will need to keep track of this themselves.)
